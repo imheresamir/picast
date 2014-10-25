@@ -7,7 +7,7 @@ Pi-cast 0.1 pre-alpha
 ------------
 The goal of this initial release is to make it simple and easy to seamlessly cast Youtube videos from your Chrome browser tab to a secondary display through a RaspberryPi on the local network. The backend core Python server apps are at 80% and the rest has yet to be implemented.
 
-Dependencies/Technologies:
+####Dependencies/Technologies:
 * Backend (rpi)
   * [youtube-dl](https://github.com/rg3/youtube-dl): for downloading/buffering videos to rpi sdcard
   * [omxplayer](https://github.com/popcornmix/omxplayer): playing videos on rpi
@@ -19,9 +19,9 @@ Dependencies/Technologies:
     * [gorilla/mux](https://github.com/gorilla/mux)
 * Frontend (chrome)
   * Javascript: Chrome extension
-    * [famous-angular](https://github.com/famous/famous-angular): MVC framework with the strength of [Angular](https://github.com/angular/angular.js) and the shine of [Famo.us](https://github.com/famous/famous) - generates our Views and communicates with our HTTP server via REST
+    * [famous-angular](https://github.com/famous/famous-angular): MVC framework with the strength of [Angular](https://github.com/angular/angular.js) and the shine of [Famo.us](https://github.com/famous/famous) - generates our Views and communicates with our HTTP server via REST protocol
 * Future Frontend (Android/iOS)
   *  [famous-angular](https://github.com/famous/famous-angular) + WebView/CocoonJS/Crosswalk
 
-Pipe Dreams:
+####Pipe Dreams:
 * Encode realtime video stream of browser tab using ffmpeg-PNaCL in Chrome and cast it to rpi 
