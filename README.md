@@ -19,7 +19,7 @@ Dependencies/Technologies:
     * [gorilla/mux](https://github.com/gorilla/mux)
 * Frontend (chrome)
   * Javascript: Chrome extension
-    * [famous-angular](https://github.com/famous/famous-angular): MVC framework with the strength of [Angular](https://github.com/angular/angular.js) and the shine of [Famo.us](https://github.com/famous/famous) - generates our Views and talks to our HTTP server
+    * [famous-angular](https://github.com/famous/famous-angular): MVC framework with the strength of [Angular](https://github.com/angular/angular.js) and the shine of [Famo.us](https://github.com/famous/famous) - generates our Views and communicates with our HTTP server via REST
 * Future Frontend (Android/iOS)
   *  [famous-angular](https://github.com/famous/famous-angular) + WebView/CocoonJS/Crosswalk
 
