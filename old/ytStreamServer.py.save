@@ -1,0 +1,47 @@
+import Pyro4, daemon, subprocess, os, signal, sys, time, job
+
+class jobServer:
+	def __init__(self, nsPid, dPid):
+		self.nsPid = nsPid
+		self.dPid = dPid
+	def execute_job(self, job):
+		currentDir = os.environ['PWD']
+		self.currentJob = job
+	
+	def download(self):
+		a = subprocess.Popen(["rm", outFilename], cwd=currentDir
+		b = subprocess.Popen(["youtube-dl", "-v", "-o", outFilename, video_id], cwd=currentDir)
+		b.wait()
+		c = subprocess.Popen(["omxplayer", outFilename], cwd=currentDir)
+		c.wait()
+	def cleanup(self):
+		return (self.nsPid, self.dPid)
+	
+
+d1 = daemon.DaemonContext()
+#d1.stdin = sys.stdin
+d1.stdout = sys.stdout
+
+with d1:
+	nsPid = subprocess.Popen("pyro4-ns").pid
+	
+	dPid = os.getpid()
+	
+	job_server = jobServer(nsPid, dPid)
+	d = Pyro4.Daemon()
+
+	while True:
+		try:
+			ns = Pyro4.locateNS()
+			#print "got the ns"
+			break
+		except Pyro4.errors.NamingError:
+			#print "can't get ns!"
+			#print "nsPid: {0}".format(nsPid)
+			exit(1)
+
+	uri = d.register(job_server)
+	ns.register("jobserver.name", uri)
+	
+	#print "jobserver registered"
+	d.requestLoop()
