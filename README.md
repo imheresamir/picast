@@ -1,7 +1,7 @@
 pi-cast
 =======
 
-##### Broadcast your Chrome browser window and video streams to your RaspberryPi
+##### Broadcast Chrome browser window and video streams to RaspberryPi
 
 Pi-cast 0.1 pre-alpha
 ------------
