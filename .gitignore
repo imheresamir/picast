@@ -1,3 +1,7 @@
+res/store/*
+res/har/*
+res/playlist.db
+
 # Compiled source #
 ###################
 *.com
