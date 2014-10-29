@@ -4,6 +4,3 @@
 [submodule "util/pyomxplayer"]
 	path = util/pyomxplayer
 	url = https://github.com/imheresamir/pyomxplayer.git
-[submodule "util/browsermob-proxy"]
-	path = util/browsermob-proxy
-	url = https://github.com/lightbody/browsermob-proxy.git
