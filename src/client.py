@@ -93,18 +93,18 @@ elif dbVideoIndex < 0:
 	print "Invalid video index."
 	exit(1)
 
-elif dbVideoIndex < length:
+elif dbVideoIndex <= length:
 	print "Selected video [{0}]".format(dbVideoIndex)
 	length = dbVideoIndex+1
 else:
 	exit(1)
 	
 for i in range(dbVideoIndex, length):
-	t = (i+1, )
-	c.execute("SELECT url FROM playlist WHERE ROWID=?", t)
-	video_url = c.fetchone()[0]
-	print "Processing [{0}] {1}...".format(i, video_url)
-	job_server.execute_job(video_url)
+  t = (i, )
+  c.execute("SELECT url FROM playlist WHERE ROWID=?", t)
+  video_url = c.fetchone()[0]
+  print "Processing [{0}] {1}...".format(i, video_url)
+  job_server.execute_job(video_url)
 
 conn.close()
 exit()
