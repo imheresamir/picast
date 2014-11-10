@@ -1,6 +1,0 @@
-[submodule "util/har-tools"]
-	path = util/har-tools
-	url = https://github.com/imheresamir/har-tools.git
-[submodule "util/pyomxplayer"]
-	path = util/pyomxplayer
-	url = https://github.com/imheresamir/pyomxplayer.git
