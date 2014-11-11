@@ -112,6 +112,12 @@ func (video *OmxPlayer) TogglePause() {
 		} else if video.Status == 0 {
 			video.Status = 1
 		}
+
+		log.Println("Outfile: " + video.Outfile)
+		log.Println("Duration: " + strconv.Itoa(video.Duration))
+		log.Println("Status: " + strconv.Itoa(video.Status))
+		log.Println("Position: " + strconv.Itoa(video.Position))
+		log.Println()
 	}
 }
 
