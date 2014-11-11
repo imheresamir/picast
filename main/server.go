@@ -28,9 +28,9 @@ func main() {
 		&rest.Route{"POST", "/api/prev", api.Prev},
 		&rest.Route{"POST", "/api/next", api.Next},
 
-		&rest.Route{"POST", "/api/play", mainMedia.Play},
-		&rest.Route{"POST", "/api/pause", mainMedia.TogglePause},
-		&rest.Route{"POST", "/api/stop", mainMedia.Stop},
+		&rest.Route{"POST", "/media/play", mainMedia.Play},
+		&rest.Route{"POST", "/media/pause", mainMedia.TogglePause},
+		&rest.Route{"POST", "/media/stop", mainMedia.Stop},
 	)
 
 	http.ListenAndServe(":8082", &handler)
