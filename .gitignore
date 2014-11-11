@@ -1,6 +1,4 @@
-res/store/*
-res/har/*
-res/playlist.db
+res/cache/*
 
 # Compiled source #
 ###################

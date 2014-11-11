@@ -114,9 +114,9 @@ func (video *OmxPlayer) TogglePause() {
 		}
 
 		log.Println("Outfile: " + video.Outfile)
-		log.Println("Duration: " + strconv.Itoa(video.Duration))
+		log.Println("Duration: " + strconv.FormatInt(video.Duration, 10))
 		log.Println("Status: " + strconv.Itoa(video.Status))
-		log.Println("Position: " + strconv.Itoa(video.Position))
+		log.Println("Position: " + strconv.FormatInt(video.Position, 10))
 		log.Println()
 	}
 }
