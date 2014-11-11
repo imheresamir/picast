@@ -2,11 +2,11 @@ package picast
 
 import (
 	"log"
-	"os/exec"
-	"strconv"
-	"regexp"
-	"time"
 	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"time"
 )
 
 /*func main() {
@@ -24,11 +24,11 @@ import (
 	}
 }*/
 
-func (video *OmxPlayer) ReturnCode() (int) {
+func (video *OmxPlayer) ReturnCode() int {
 	return <-video.KillSwitch
 }
 
-func (video *OmxPlayer) Started() (int) {
+func (video *OmxPlayer) Started() int {
 	return video.ThreadStarted
 }
 
@@ -174,7 +174,7 @@ func (video *OmxPlayer) WatchPosition() {
 			log.Fatal(err)
 		}*/
 
-		if video.Duration - video.Position <= 350000 {
+		if video.Duration-video.Position <= 350000 {
 			video.Stop(1) // Send internal kill signal
 		}
 

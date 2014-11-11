@@ -2,13 +2,13 @@ package picast
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
-	"os"
 	"time"
 )
 
-func YoutubeDl(entry PlaylistEntry) (string) {
+func YoutubeDl(entry PlaylistEntry) string {
 	outfile := "res/cache/" + strconv.Itoa(entry.Id) + ".mp4"
 	cmd := exec.Command("youtube-dl", "--no-part", "-o", outfile, entry.Url)
 	cmd.Stdout = os.Stdout
@@ -23,7 +23,7 @@ func YoutubeDl(entry PlaylistEntry) (string) {
 	// Return outFileName
 
 	for {
-		_, err := os.Stat(outfile);
+		_, err := os.Stat(outfile)
 
 		if err == nil {
 			break

@@ -1,16 +1,16 @@
-package picast
+package main
 
 import (
-	"github.com/imheresamir/picast"
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/imheresamir/picast"
 	"log"
 	"net/http"
 )
 
 func main() {
 
-	mainMedia := picast.Media{Metadata: &PlaylistEntry{}}
-	api := picast.Api{CurrentPlayer: &mainMedia}
+	mainMedia := picast.Media{Metadata: &picast.PlaylistEntry{}}
+	api := picast.Api{CurrentMedia: &mainMedia}
 	api.InitDB()
 
 	log.Println("Server Started.")

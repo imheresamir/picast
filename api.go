@@ -4,9 +4,9 @@ import (
 	//"fmt"
 	"log"
 
+	"database/sql"
 	"github.com/ant0ine/go-json-rest/rest"
 	_ "github.com/mattn/go-sqlite3"
-	"database/sql"
 
 	"net/http"
 	"strconv"
@@ -15,6 +15,7 @@ import (
 var DBNAME = "res/playlist.db"
 var TABLENAME = "playlist"
 var COLNAME1 = "url"
+
 //var COLNAME2 = "played"
 
 func (api *Api) InitDB() {
@@ -134,7 +135,7 @@ func (api *Api) LocalDelete(entry PlaylistEntry) {
 }
 
 // TODO: Implement GetFirst()
-func (api *Api) GetFirst() (*PlaylistEntry) {
+func (api *Api) GetFirst() *PlaylistEntry {
 	nextEntry := &PlaylistEntry{}
 
 	rows, err := api.DB.Query("SELECT ROWID, " + COLNAME1 + " FROM " + TABLENAME + " ORDER BY ROWID ASC LIMIT 1")
@@ -157,7 +158,7 @@ func (api *Api) GetFirst() (*PlaylistEntry) {
 	return nextEntry
 }
 
-func (api *Api) GetNext() (*PlaylistEntry) {
+func (api *Api) GetNext() *PlaylistEntry {
 	// Return empty PlaylistEntry{} if CurrentMedia Metadata is not initialized
 	if *api.CurrentMedia.Metadata == (PlaylistEntry{}) {
 		return &PlaylistEntry{}
