@@ -10,7 +10,7 @@ import (
 
 func YoutubeDl(entry PlaylistEntry) string {
 	outfile := "res/cache/" + strconv.Itoa(entry.Id) + ".mp4"
-	cmd := exec.Command("youtube-dl", "--no-part", "-o", outfile, entry.Url)
+	cmd := exec.Command("youtube-dl", "--no-playlist", "--no-part", "-o", outfile, entry.Url)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

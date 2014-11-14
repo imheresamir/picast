@@ -110,7 +110,7 @@ func (media *Media) Stop(w rest.ResponseWriter, r *rest.Request) {
 	case strings.Contains(media.Metadata.Url, "youtube"):
 		cmd := exec.Command("killall", "youtube-dl")
 		cmd.Run()
-		os.Remove(media.Player.CacheFile())
+
 		media.Player = nil
 	}
 

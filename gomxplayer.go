@@ -67,7 +67,10 @@ func (video *OmxPlayer) Play() {
 
 			if err == nil {
 				//video.Started = 1
+
 				break
+			} else {
+				//log.Println("DBus error, stuck in for loop")
 			}
 
 		}
@@ -127,8 +130,6 @@ func (video *OmxPlayer) TogglePause() {
 			video.Playing = 1
 			go video.WatchPosition()
 		}
-	} else {
-		log.Println("Thread not started!")
 	}
 }
 
@@ -155,6 +156,8 @@ func (video *OmxPlayer) Stop(signal int) {
 		//video = &OmxPlayer{}
 
 		log.Println("Video stopped.")
+
+		os.Remove(media.Player.CacheFile())
 
 		video.KillSwitch <- signal
 
