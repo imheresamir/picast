@@ -24,6 +24,14 @@ import (
 	}
 }*/
 
+func (video *OmxPlayer) CacheFile() string {
+	return video.Outfile
+}
+
+func (video *OmxPlayer) Status() int {
+	return video.Playing
+}
+
 func (video *OmxPlayer) ReturnCode() int {
 	return <-video.KillSwitch
 }
@@ -87,9 +95,9 @@ func (video *OmxPlayer) Play() {
 		}
 
 		if paused == "false" {
-			video.Status = 1
+			video.Playing = 1
 		} else if paused == "true" {
-			video.Status = 0
+			video.Playing = 0
 		}
 
 		// Launch goroutine
@@ -100,24 +108,25 @@ func (video *OmxPlayer) Play() {
 
 func (video *OmxPlayer) TogglePause() {
 	if video.ThreadStarted == 1 {
-		cmd := exec.Command("util/dbuscontrol.sh", "pause")
 
-		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
+		for {
+			cmd := exec.Command("util/dbuscontrol.sh", "pause")
+
+			err := cmd.Run()
+			if err == nil {
+				break
+			} else {
+				log.Println("Pause error")
+			}
+
 		}
 
-		if video.Status == 1 {
-			video.Status = 0
-		} else if video.Status == 0 {
-			video.Status = 1
+		if video.Playing == 1 {
+			video.Playing = 0
+		} else if video.Playing == 0 {
+			video.Playing = 1
+			go video.WatchPosition()
 		}
-
-		log.Println("Outfile: " + video.Outfile)
-		log.Println("Duration: " + strconv.FormatInt(video.Duration, 10))
-		log.Println("Status: " + strconv.Itoa(video.Status))
-		log.Println("Position: " + strconv.FormatInt(video.Position, 10))
-		log.Println()
 	}
 }
 
@@ -132,19 +141,18 @@ func (video *OmxPlayer) Stop(signal int) {
 		video.ThreadStarted = 0
 		time.Sleep(500 * time.Millisecond)
 
-		cmd := exec.Command("killall", "omxplayer")
+		cmd := exec.Command("killall", "omxplayer", "omxplayer.bin")
 		cmd.Run()
 
-		cmd = exec.Command("killall", "/usr/bin/omxplayer.bin")
-		cmd.Run()
-
-		video.Outfile = ""
+		//video.Outfile = ""
 		//video.Started = 0
-		video.ThreadStarted = 0
-		video.Status = 0
-		video.Duration = 0
-		video.Position = 0
+		//video.ThreadStarted = 0
+		//video.Playing = 0
+		//video.Duration = 0
+		//video.Position = 0
 		//video = &OmxPlayer{}
+
+		log.Println("Video stopped.")
 
 		video.KillSwitch <- signal
 
@@ -154,6 +162,10 @@ func (video *OmxPlayer) Stop(signal int) {
 func (video *OmxPlayer) WatchPosition() {
 	for {
 		if video.ThreadStarted != 1 {
+			break
+		}
+
+		if video.Playing == 0 {
 			break
 		}
 
@@ -184,8 +196,8 @@ func (video *OmxPlayer) WatchPosition() {
 			video.Stop(1) // Send internal kill signal
 		}
 
-		//log.Println("Duration: " + strconv.Itoa(video.Duration))
-		//log.Println("Position: " + strconv.Itoa(video.Position))
+		//log.Println("Duration: " + strconv.FormatInt(video.Duration, 10))
+		//log.Println("Position: " + strconv.FormatInt(video.Position, 10))
 
 	}
 }

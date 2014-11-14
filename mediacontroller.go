@@ -1,11 +1,13 @@
 package picast
 
 import (
-	"strings"
 	//"log"
+	"strings"
 	//"strconv"
 	"github.com/ant0ine/go-json-rest/rest"
 	"net/http"
+	"os"
+	"os/exec"
 )
 
 // Plays current entry. After completion, checks for more
@@ -69,10 +71,12 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		rest.NotFound(w, r)
 		return
 	case media.Player != nil:
-		if media.Player.Started() == 1 {
-			media.Player.Stop(-1)
-		}
+		//log.Println("In case 2")
+		media.Stop(w, r)
+
+		fallthrough
 	case strings.Contains(entry.Url, "youtube"):
+		//log.Println("In case 3")
 		media.Metadata = &entry
 		media.Player = &OmxPlayer{Outfile: YoutubeDl(entry), KillSwitch: make(chan int, 1)}
 		// Made a buffered kill channel so the internal kill signal won't block
@@ -99,10 +103,15 @@ func (media *Media) Stop(w rest.ResponseWriter, r *rest.Request) {
 	switch {
 	case media.Player == nil:
 		return
-	}
-
-	if media.Player.Started() == 1 {
+	case true: //case media.Player.Started() == 1:
 		media.Player.Stop(-1)
+
+		fallthrough
+	case strings.Contains(media.Metadata.Url, "youtube"):
+		cmd := exec.Command("killall", "youtube-dl")
+		cmd.Run()
+		os.Remove(media.Player.CacheFile())
+		media.Player = nil
 	}
 
 	w.WriteJson(&struct{ Server string }{Server: "Media stopped."})

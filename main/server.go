@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/gorilla/mux"
 	"github.com/imheresamir/picast"
 	"log"
 	"net/http"
@@ -14,6 +15,8 @@ func main() {
 	api.InitDB()
 
 	log.Println("Server Started.")
+
+	// REST handler
 
 	handler := rest.ResourceHandler{
 		EnableRelaxedContentType: true,
@@ -33,5 +36,14 @@ func main() {
 		&rest.Route{"POST", "/media/stop", mainMedia.Stop},
 	)
 
-	http.ListenAndServe(":8082", &handler)
+	go http.ListenAndServe(":8082", &handler)
+
+	// HTTP handler
+
+	r := mux.NewRouter()
+
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
+
+	http.Handle("/", r)
+	log.Panic(http.ListenAndServe(":80", nil))
 }

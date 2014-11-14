@@ -20,6 +20,8 @@ type MediaPlayer interface {
 	Stop(int)     // pass -1 if calling from external (non-MediaPlayer) method
 	Started() int // 0 = stopped, 1 = started
 	ReturnCode() int
+	Status() int // 0 = paused, 1 = playing
+	CacheFile() string
 }
 
 type Media struct {
@@ -32,7 +34,7 @@ type OmxPlayer struct {
 
 	ThreadStarted int // 0 = stopped, 1 = started: OmxPlayer is initialized and WatchPosition is active
 	// ThreadStarted is now being used to stop WatchPosition from Stop()
-	Status int // 0 = paused, 1 = playing
+	Playing int // 0 = paused, 1 = playing
 
 	Duration int64
 	Position int64
