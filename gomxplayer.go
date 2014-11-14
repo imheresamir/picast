@@ -127,6 +127,8 @@ func (video *OmxPlayer) TogglePause() {
 			video.Playing = 1
 			go video.WatchPosition()
 		}
+	} else {
+		log.Println("Thread not started!")
 	}
 }
 
