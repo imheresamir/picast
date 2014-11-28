@@ -1,12 +1,13 @@
 package picast
 
 import (
-	//"log"
+	"log"
 	"strings"
 	//"strconv"
 	"github.com/ant0ine/go-json-rest/rest"
 	"net/http"
-	"os"
+	//"os"
+	"io/ioutil"
 	"os/exec"
 )
 
@@ -34,12 +35,13 @@ func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
 			// Below breaks out of playlist loop and returns if external kill signal was received
 			// Otherwise continues after internal kill signal receive
 			if api.CurrentMedia.Player.ReturnCode() == -1 {
-				return
+				break
 			}
 		}
 	}
 
 	api.CurrentMedia.Metadata = &PlaylistEntry{}
+	api.CurrentMedia.Player = nil
 	w.WriteJson(&struct{ Server string }{Server: "Finished playlist."})
 }
 
@@ -63,8 +65,10 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(&entry)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println(err.Error())
 		return
 	}
+	log.Println(entry)
 
 	switch {
 	case entry.Url == "":
@@ -74,15 +78,37 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		//log.Println("In case 2")
 		media.Stop(w, r)
 
-		fallthrough
-	case strings.Contains(entry.Url, "youtube"):
+	}
+
+	switch {
+	case strings.Contains(entry.Url, "youtube") || strings.Contains(entry.Url, "youtu.be"):
 		//log.Println("In case 3")
 		media.Metadata = &entry
 		media.Player = &OmxPlayer{Outfile: YoutubeDl(entry), KillSwitch: make(chan int, 1)}
 		// Made a buffered kill channel so the internal kill signal won't block
 
 		go media.Player.Play()
+
 		w.WriteJson(&struct{ Server string }{Server: "Unsaved Youtube media playing."})
+	case strings.Contains(entry.Url, "zeetv"):
+		filename := "res/cache/playlist.m3u8"
+
+		data := []byte(entry.Data)
+		err := ioutil.WriteFile(filename, data, 0644)
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		entry.Data = ""
+
+		media.Metadata = &entry
+		media.Player = &OmxPlayer{Outfile: filename, KillSwitch: make(chan int, 1)}
+		// Made a buffered kill channel so the internal kill signal won't block
+
+		go media.Player.Play()
+
+		w.WriteJson(&struct{ Server string }{Server: "Unsaved zeetv media playing."})
+
 	}
 }
 
