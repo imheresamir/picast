@@ -9,9 +9,9 @@ type Api struct {
 
 // Matches database schema
 type PlaylistEntry struct {
-	Id  int
-	Url string
-	//Played	int
+	Id   int
+	Url  string
+	Data string
 }
 
 type MediaPlayer interface {
