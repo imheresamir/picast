@@ -119,7 +119,7 @@ func (video *OmxPlayer) TogglePause() {
 			if err == nil {
 				break
 			} else {
-				log.Println("Pause error")
+				//log.Println("Pause error")
 			}
 
 		}
@@ -157,7 +157,7 @@ func (video *OmxPlayer) Stop(signal int) {
 
 		log.Println("Video stopped.")
 
-		os.Remove(media.Player.CacheFile())
+		os.Remove(video.Outfile)
 
 		video.KillSwitch <- signal
 
@@ -185,7 +185,7 @@ func (video *OmxPlayer) WatchPosition() {
 			if err == nil {
 				break
 			} else {
-				log.Println("DBus Error")
+				//log.Println("DBus Error")
 			}
 
 		}

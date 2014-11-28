@@ -134,7 +134,6 @@ func (api *Api) LocalDelete(entry PlaylistEntry) {
 	}
 }
 
-// TODO: Implement GetFirst()
 func (api *Api) GetFirst() *PlaylistEntry {
 	nextEntry := &PlaylistEntry{}
 
