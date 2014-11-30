@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	//"strconv"
 	"os"
-	"strings"
+	//"strings"
 )
 
 func YoutubeDl(entry PlaylistEntry) (string, error) {
@@ -19,8 +19,6 @@ func YoutubeDl(entry PlaylistEntry) (string, error) {
 
 	switch {
 	case video_link == "":
-		fallthrough
-	case strings.Contains(video_link, "\n"):
 		log.Println("Could not find video link")
 		return "", os.ErrNotExist
 	}
