@@ -2,11 +2,20 @@ package main
 
 import (
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/antage/eventsource"
 	"github.com/gorilla/mux"
 	"github.com/imheresamir/picast"
 	"io/ioutil"
 	"log"
 	"net/http"
+	//"strconv"
+	"time"
+)
+
+const (
+	fileserverPort = "8080"
+	ssePort        = "8081"
+	restPort       = "8082"
 )
 
 type MyCorsMiddleware struct{}
@@ -26,7 +35,8 @@ func (mw *MyCorsMiddleware) MiddlewareFunc(handler rest.HandlerFunc) rest.Handle
 
 		// Validate the Origin
 		// More sophisticated validations can be implemented, regexps, DB lookups, ...
-		/*if corsInfo.Origin != "http://my.other.host" {
+		/*myIp, _ := externalIP()
+		if corsInfo.Origin != myIp+":"+fileserverPort && corsInfo.Origin != "raspberrypi.local:"+fileserverPort {
 			rest.Error(writer, "Invalid Origin", http.StatusForbidden)
 			return
 		}*/
@@ -36,7 +46,6 @@ func (mw *MyCorsMiddleware) MiddlewareFunc(handler rest.HandlerFunc) rest.Handle
 			allowedMethods := map[string]bool{
 				"GET":  true,
 				"POST": true,
-				"PUT":  true,
 				// don't allow DELETE, for instance
 			}
 			if !allowedMethods[corsInfo.AccessControlRequestMethod] {
@@ -83,8 +92,6 @@ func main() {
 	api := picast.Api{CurrentMedia: &mainMedia}
 	api.InitDB()
 
-	fileserverPort := "8080"
-
 	log.Println("Server Started.")
 
 	// REST handler
@@ -105,11 +112,49 @@ func main() {
 		&rest.Route{"POST", "/api/next", api.Next},
 
 		&rest.Route{"POST", "/media/play", mainMedia.Play},
-		&rest.Route{"POST", "/media/pause", mainMedia.TogglePause},
-		&rest.Route{"POST", "/media/stop", mainMedia.Stop},
+		&rest.Route{"GET", "/media/pause", mainMedia.TogglePause},
+		&rest.Route{"GET", "/media/stop", mainMedia.Stop},
+		&rest.Route{"GET", "/media/status", mainMedia.Status},
 	)
 
-	go http.ListenAndServe(":8082", &handler)
+	go http.ListenAndServe(":"+restPort, &handler)
+
+	// Server Sent Events Handler
+
+	es := eventsource.New(
+		eventsource.DefaultSettings(),
+		func(req *http.Request) [][]byte {
+			return [][]byte{
+				[]byte("Access-Control-Allow-Origin: *"),
+			}
+		},
+	)
+	//defer es.Close()
+	http.Handle("/events", es)
+	go func() {
+		currentState := 0
+
+		for {
+			if mainMedia.Player != nil && currentState != mainMedia.Player.StatusCode() {
+				switch mainMedia.Player.StatusCode() {
+				case 0:
+					es.SendEventMessage("stopped", "playerStateChanged", "")
+				case 2:
+					es.SendEventMessage("paused", "playerStateChanged", "")
+				case 3:
+					es.SendEventMessage("playing", "playerStateChanged", "")
+				}
+
+				log.Println("Server Event Sent.")
+
+				currentState = mainMedia.Player.StatusCode()
+			}
+
+			time.Sleep(1 * time.Second)
+
+		}
+	}()
+	go http.ListenAndServe(":"+ssePort, nil)
 
 	// HTTP handler
 
