@@ -8,7 +8,7 @@ import (
 	"net/http"
 	//"os"
 	//"io/ioutil"
-	"os/exec"
+	//"os/exec"
 )
 
 // Plays current entry. After completion, checks for more
@@ -68,7 +68,6 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		log.Println(err.Error())
 		return
 	}
-	log.Println(entry)
 
 	switch {
 	case entry.Url == "":
@@ -83,13 +82,39 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	outfile, err := YoutubeDl(entry)
 	if err != nil {
 		log.Println("Youtube-dl could not find video link.")
-		w.WriteJson(&struct{ Server string }{Server: "Media could not be played"})
 	} else {
+		outfile = strings.Trim(outfile, " \n")
 		media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
 		go media.Player.Play()
-		w.WriteJson(&struct{ Server string }{Server: "Media playing."})
 	}
 
+	w.WriteJson(media.StatusBuilder())
+
+}
+
+func (media *Media) Status(w rest.ResponseWriter, r *rest.Request) {
+	w.WriteJson(media.StatusBuilder())
+}
+
+func (media *Media) StatusBuilder() *ServerStatus {
+	status := &ServerStatus{Server: "No media."}
+
+	if media.Player != nil {
+
+		switch media.Player.StatusCode() {
+		case 0:
+			status.Server = "Media stopped."
+		case 1:
+			status.Server = "Media loading."
+		case 2:
+			status.Server = "Media paused."
+		case 3:
+			status.Server = "Media playing."
+		}
+
+	}
+
+	return status
 }
 
 func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {
@@ -98,27 +123,21 @@ func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	if media.Player.Started() == 1 {
+	if media.Player.StatusCode() > 1 {
 		media.Player.TogglePause()
 	}
 
-	w.WriteJson(&struct{ Server string }{Server: "Media (un)paused."})
+	w.WriteJson(media.StatusBuilder())
 }
 
 func (media *Media) Stop(w rest.ResponseWriter, r *rest.Request) {
 	switch {
 	case media.Player == nil:
 		return
-	case true: //case media.Player.Started() == 1:
+	default:
 		media.Player.Stop(-1)
-
-		fallthrough
-	case strings.Contains(media.Metadata.Url, "youtube"):
-		cmd := exec.Command("killall", "youtube-dl")
-		cmd.Run()
-
 		media.Player = nil
 	}
 
-	w.WriteJson(&struct{ Server string }{Server: "Media stopped."})
+	w.WriteJson(media.StatusBuilder())
 }

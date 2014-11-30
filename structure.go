@@ -17,11 +17,9 @@ type PlaylistEntry struct {
 type MediaPlayer interface {
 	Play()
 	TogglePause()
-	Stop(int)     // pass -1 if calling from external (non-MediaPlayer) method
-	Started() int // 0 = stopped, 1 = started
+	Stop(int) // pass -1 if calling from external (non-MediaPlayer) method
 	ReturnCode() int
-	Status() int // 0 = paused, 1 = playing
-	CacheFile() string
+	StatusCode() int // 0 = stopped, 1 = loading, 2 = paused, 3 = playing
 }
 
 type Media struct {
@@ -29,12 +27,14 @@ type Media struct {
 	Player   MediaPlayer
 }
 
+type ServerStatus struct {
+	Server string
+}
+
 type OmxPlayer struct {
 	Outfile string
 
-	ThreadStarted int // 0 = stopped, 1 = started: OmxPlayer is initialized and WatchPosition is active
-	// ThreadStarted is now being used to stop WatchPosition from Stop()
-	Playing int // 0 = paused, 1 = playing
+	Status int
 
 	Duration int64
 	Position int64
