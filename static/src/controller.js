@@ -1,7 +1,7 @@
 /* globals define */
 define(function(require, exports, module) {
-    var serverIp = require('serverIp');
-    serverIp = 'http://' + serverIp;
+    var serverConfig = require('serverConfig');
+    var serverIp = 'http://' + serverConfig;
 
     var view = require('main');
     var playlist = view[0];

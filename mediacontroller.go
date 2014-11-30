@@ -7,7 +7,7 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"net/http"
 	//"os"
-	"io/ioutil"
+	//"io/ioutil"
 	"os/exec"
 )
 
@@ -15,7 +15,7 @@ import (
 // playlist entries and plays them
 // Gets currently selected item from sidebar
 func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
-	// start from top of playlist
+	/*// start from top of playlist
 
 	switch {
 	case api.CurrentMedia.Player == nil:
@@ -42,7 +42,7 @@ func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
 
 	api.CurrentMedia.Metadata = &PlaylistEntry{}
 	api.CurrentMedia.Player = nil
-	w.WriteJson(&struct{ Server string }{Server: "Finished playlist."})
+	w.WriteJson(&struct{ Server string }{Server: "Finished playlist."})*/
 }
 
 func (api *Api) Next(w rest.ResponseWriter, r *rest.Request) {
@@ -75,41 +75,21 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		rest.NotFound(w, r)
 		return
 	case media.Player != nil:
-		//log.Println("In case 2")
 		media.Stop(w, r)
 
 	}
 
-	switch {
-	case strings.Contains(entry.Url, "youtube") || strings.Contains(entry.Url, "youtu.be"):
-		//log.Println("In case 3")
-		media.Metadata = &entry
-		media.Player = &OmxPlayer{Outfile: YoutubeDl(entry), KillSwitch: make(chan int, 1)}
-		// Made a buffered kill channel so the internal kill signal won't block
-
+	media.Metadata = &entry
+	outfile, err := YoutubeDl(entry)
+	if err != nil {
+		log.Println("Youtube-dl could not find video link.")
+		w.WriteJson(&struct{ Server string }{Server: "Media could not be played"})
+	} else {
+		media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
 		go media.Player.Play()
-
-		w.WriteJson(&struct{ Server string }{Server: "Unsaved Youtube media playing."})
-	case strings.Contains(entry.Url, "zeetv"):
-		filename := "res/cache/playlist.m3u8"
-
-		data := []byte(entry.Data)
-		err := ioutil.WriteFile(filename, data, 0644)
-		if err != nil {
-			log.Panicln(err)
-		}
-
-		entry.Data = ""
-
-		media.Metadata = &entry
-		media.Player = &OmxPlayer{Outfile: filename, KillSwitch: make(chan int, 1)}
-		// Made a buffered kill channel so the internal kill signal won't block
-
-		go media.Player.Play()
-
-		w.WriteJson(&struct{ Server string }{Server: "Unsaved zeetv media playing."})
-
+		w.WriteJson(&struct{ Server string }{Server: "Media playing."})
 	}
+
 }
 
 func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {

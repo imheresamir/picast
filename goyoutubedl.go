@@ -2,37 +2,28 @@ package picast
 
 import (
 	"log"
-	"os"
+	//"os"
 	"os/exec"
-	"strconv"
-	"time"
+	//"strconv"
+	"os"
+	"strings"
 )
 
-func YoutubeDl(entry PlaylistEntry) string {
-	outfile := "res/cache/" + strconv.Itoa(entry.Id) + ".mp4"
-	cmd := exec.Command("youtube-dl", "--no-playlist", "--no-part", "-o", outfile, entry.Url)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Start()
+func YoutubeDl(entry PlaylistEntry) (string, error) {
+	video_link_bytes, err := exec.Command("youtube-dl", "-g", entry.Url).Output()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
-	// While outFile does not exist, sleep
-	// Return outFileName
+	video_link := string(video_link_bytes[:])
 
-	for {
-		_, err := os.Stat(outfile)
-
-		if err == nil {
-			break
-		}
-
-		time.Sleep(1000 * time.Millisecond)
-
+	switch {
+	case video_link == "":
+		fallthrough
+	case strings.Contains(video_link, "\n"):
+		log.Println("Could not find video link")
+		return "", os.ErrNotExist
 	}
 
-	time.Sleep(3000 * time.Millisecond)
-	return outfile
+	return video_link, nil
 }

@@ -83,6 +83,8 @@ func main() {
 	api := picast.Api{CurrentMedia: &mainMedia}
 	api.InitDB()
 
+	fileserverPort := "8080"
+
 	log.Println("Server Started.")
 
 	// REST handler
@@ -117,11 +119,9 @@ func main() {
 		log.Println(err)
 	}
 
-	serverIpjs := "define(function(require, exports, module) {"
-	serverIpjs += "\n\tmodule.exports = '" + ip + "';"
-	serverIpjs += "\n});"
+	serverConfigjs := "define(function(require, exports, module) {" + "\n\tmodule.exports = ['" + ip + "'];" + "\n});"
 
-	err = ioutil.WriteFile("static/src/serverIp.js", []byte(serverIpjs), 0644)
+	err = ioutil.WriteFile("static/src/serverConfig.js", []byte(serverConfigjs), 0644)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -131,5 +131,5 @@ func main() {
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 
 	http.Handle("/", r)
-	log.Panic(http.ListenAndServe(":8080", nil))
+	log.Panic(http.ListenAndServe(":"+fileserverPort, nil))
 }
