@@ -10,6 +10,7 @@ define(function(require, exports, module) {
     var bottomBarItems = [];
     var playerControlItems = [];
     var eventHandler = new EventHandler();
+    var playLock = true;
 
     function PlayerControlsView() {
         View.apply(this, arguments);
@@ -83,7 +84,7 @@ define(function(require, exports, module) {
         }));
 
         playerControlItems.push(new ImageSurface({
-            content: 'assets/pause.svg',
+            content: 'assets/play.svg',
             properties: {
                 //backgroundColor: 'rgba(0, 0, 0, 0.9)',
                 //border: 'none',
@@ -118,39 +119,54 @@ define(function(require, exports, module) {
         });
 
         playerControlItems[1].on('mousedown', function() {
-            if (playerControlItems[1]._imageUrl.indexOf('play') == -1)
-                playerControlItems[1].setContent('assets/pause_clicked.svg');
-            else
-                playerControlItems[1].setContent('assets/play_clicked.svg');
+            if(!playLock) {
+                if (playerControlItems[1]._imageUrl.indexOf('play') == -1)
+                    playerControlItems[1].setContent('assets/pause_clicked.svg');
+                else
+                    playerControlItems[1].setContent('assets/play_clicked.svg');
+            }
         });
         playerControlItems[1].on('mouseup', function() {
-            if (playerControlItems[1]._imageUrl.indexOf('play') == -1) {
-                eventHandler.emit("pause");
-            }
-            else {
-                eventHandler.emit("play");
+            if(!playLock) {
+                if (playerControlItems[1]._imageUrl.indexOf('play') == -1) {
+                    eventHandler.emit("pause");
+                }
+                else {
+                    eventHandler.emit("play");
+                }
             }
 
+        });
+
+        this.on('stopped', function() {
+            playerControlItems[1].setContent('assets/play.svg');
+            playLock = true;
         });
         this.on('paused', function() {
             playerControlItems[1].setContent('assets/play.svg');
+            playLock = false;
         });
         this.on('playing', function() {
             playerControlItems[1].setContent('assets/pause.svg');
+            playLock = false;
         });
 
         playerControlItems[1].on('touchstart', function() {
-            if (playerControlItems[1]._imageUrl.indexOf('play') == -1)
-                playerControlItems[1].setContent('assets/pause_clicked.svg');
-            else
-                playerControlItems[1].setContent('assets/play_clicked.svg');
+            if(!playLock) {
+                if (playerControlItems[1]._imageUrl.indexOf('play') == -1)
+                    playerControlItems[1].setContent('assets/pause_clicked.svg');
+                else
+                    playerControlItems[1].setContent('assets/play_clicked.svg');
+            }
         });
         playerControlItems[1].on('touchend', function() {
-            if (playerControlItems[1]._imageUrl.indexOf('play') == -1) {
-                eventHandler.emit("pause");
-            }
-            else {
-                eventHandler.emit("play");
+            if(!playLock) {
+                if (playerControlItems[1]._imageUrl.indexOf('play') == -1) {
+                    eventHandler.emit("pause");
+                }
+                else {
+                    eventHandler.emit("play");
+                }
             }
         });
 
