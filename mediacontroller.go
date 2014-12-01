@@ -5,6 +5,7 @@ import (
 	"strings"
 	//"strconv"
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/op/go-libspotify/spotify"
 	"net/http"
 	//"os"
 	//"io/ioutil"
@@ -78,15 +79,37 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 
 	}
 
-	media.Metadata = &entry
-	outfile, err := YoutubeDl(entry)
-	if err != nil {
-		log.Println("Youtube-dl could not find video link.")
-	} else {
-		outfile = strings.Trim(outfile, " \n")
-		media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
-		go media.Player.Play()
+	switch {
+	case strings.Contains(entry.Url, "spotify:"):
+		switch entry.Data.(type) {
+		case map[string]interface{}:
+			login := entry.Data.(map[string]interface{})
+			//entry.Data = nil
+
+			media.Player = &SpotifyPlayer{
+				Outfile:    entry.Url,
+				KillSwitch: make(chan int, 1),
+				Login: spotify.Credentials{
+					Username: login["Username"].(string),
+					Password: login["Password"].(string),
+				},
+			}
+			go media.Player.Play()
+		default:
+			log.Println("Could not log in to Spotify.")
+		}
+
+	default:
+		outfile, err := YoutubeDl(entry)
+		if err != nil {
+			log.Println("Youtube-dl could not find video link.")
+		} else {
+			media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
+			go media.Player.Play()
+		}
 	}
+
+	media.Metadata = &entry
 
 	w.WriteJson(media.StatusBuilder())
 

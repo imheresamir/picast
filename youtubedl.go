@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	//"strconv"
 	"os"
-	//"strings"
+	"strings"
 )
 
 func YoutubeDl(entry PlaylistEntry) (string, error) {
@@ -23,5 +23,6 @@ func YoutubeDl(entry PlaylistEntry) (string, error) {
 		return "", os.ErrNotExist
 	}
 
+	video_link = strings.Trim(video_link, " \n")
 	return video_link, nil
 }
