@@ -46,7 +46,6 @@ var (
 	Player  *spotify.Player
 	Audio   *audioWriter
 	Session *spotify.Session
-	Link    *spotify.Link
 )
 
 func (spotty *SpotifyPlayer) StatusCode() int {
@@ -123,12 +122,12 @@ func (spotty *SpotifyPlayer) Play() {
 	}
 
 	// Parse the track
-	Link, err = Session.ParseLink(spotty.Outfile)
+	link, err := Session.ParseLink(spotty.Outfile)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	track, err := Link.Track()
+	track, err := link.Track()
 	if err != nil {
 		log.Println(err)
 		return
