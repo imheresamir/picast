@@ -33,7 +33,7 @@ func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
 			go api.CurrentMedia.Player.Play()
 
 			// Below breaks out of playlist loop and returns if external kill signal was received
-			// Otherwise continues after internal kill signal receive
+			// Otherwise blocks until internal kill signal receive
 			if api.CurrentMedia.Player.ReturnCode() == -1 {
 				break
 			}
@@ -118,12 +118,7 @@ func (media *Media) StatusBuilder() *ServerStatus {
 }
 
 func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {
-	switch {
-	case media.Player == nil:
-		return
-	}
-
-	if media.Player.StatusCode() > 1 {
+	if media.Player != nil && media.Player.StatusCode() > 1 {
 		media.Player.TogglePause()
 	}
 
@@ -131,10 +126,7 @@ func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func (media *Media) Stop(w rest.ResponseWriter, r *rest.Request) {
-	switch {
-	case media.Player == nil:
-		return
-	default:
+	if media.Player != nil && media.Player.StatusCode() > 0 {
 		media.Player.Stop(-1)
 		media.Player = nil
 	}

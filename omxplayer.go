@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strconv"
-	"time"
 )
 
 /*func main() {
@@ -106,8 +105,6 @@ func (video *OmxPlayer) TogglePause() {
 // OR externally from Api or Media methods with kill signal -1
 func (video *OmxPlayer) Stop(signal int) {
 	if video.Status > 0 {
-		time.Sleep(500 * time.Millisecond)
-
 		cmd := exec.Command("killall", "omxplayer", "omxplayer.bin")
 		cmd.Run()
 

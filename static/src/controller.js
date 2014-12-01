@@ -9,6 +9,28 @@ define(function(require, exports, module) {
     var playercontrols = view[1];
     var playLock = true;
 
+    // Get initial player state
+    var ajax = new XMLHttpRequest();
+
+    ajax.open('GET', serverIp + ':8082/media/status', true);
+    ajax.setRequestHeader('Content-Type', 'application/json');
+    ajax.send();
+
+    ajax.onreadystatechange = function() {
+        if(ajax.readyState == 4 && ajax.status == 200) {
+            if(ajax.responseText.indexOf('playing') != -1) {
+                playLock = false;
+                playercontrols._eventOutput.emit("playing");
+            } else if(ajax.responseText.indexOf('paused') != -1) {
+                playLock = false;
+                playercontrols._eventOutput.emit("paused");
+            } else {
+                playLock = true;
+                playercontrols._eventOutput.emit("stopped");
+            }
+        }
+    }
+
     evtSource.addEventListener("playerStateChanged", function(e) {
         console.log("Server event: playerState - " + e.data);
         if(e.data == "stopped") {
@@ -33,7 +55,7 @@ define(function(require, exports, module) {
 
             ajax.open('GET', serverIp + ':8082/media/pause', true);
             ajax.setRequestHeader('Content-Type', 'application/json');
-            ajax.send('{"Pause":"pause"}');
+            ajax.send(null);
             
             ajax.onreadystatechange = function() {
                 if(ajax.readyState == 4 && ajax.status == 200) {
@@ -56,7 +78,7 @@ define(function(require, exports, module) {
 
             ajax.open('GET', serverIp + ':8082/media/pause', true);
             ajax.setRequestHeader('Content-Type', 'application/json');
-            ajax.send('{"Pause":"play"}');
+            ajax.send(null);
             
             ajax.onreadystatechange = function() {
                 if(ajax.readyState == 4 && ajax.status == 200) {

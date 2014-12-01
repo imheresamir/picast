@@ -150,7 +150,7 @@ func main() {
 				currentState = mainMedia.Player.StatusCode()
 			}
 
-			time.Sleep(1 * time.Second)
+			time.Sleep(250 * time.Millisecond)
 
 		}
 	}()
