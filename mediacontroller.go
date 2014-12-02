@@ -7,6 +7,7 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/op/go-libspotify/spotify"
 	"net/http"
+	"regexp"
 	//"os"
 	//"io/ioutil"
 	//"os/exec"
@@ -79,8 +80,29 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 
 	}
 
+	log.Println(entry)
+
 	switch {
-	case strings.Contains(entry.Url, "spotify:"):
+	case strings.Contains(entry.Url, "spotify"):
+		spotifyUri := "spotify"
+
+		re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+)`)
+		matches := re.FindAllStringSubmatch(entry.Url, -1)
+
+		for i := range matches {
+			for j := range matches[0] {
+				if j != 0 && matches[i][j] != "" {
+					spotifyUri += ":"
+					spotifyUri += matches[i][j]
+				}
+			}
+		}
+
+		if spotifyUri == "spotify" {
+			log.Println("Could not parse Spotify uri.")
+			break
+		}
+
 		switch entry.Data.(type) {
 		case map[string]interface{}:
 			login := entry.Data.(map[string]interface{})
@@ -97,6 +119,7 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 			go media.Player.Play()
 		default:
 			log.Println("Could not log in to Spotify.")
+			break
 		}
 
 	default:
