@@ -89,8 +89,8 @@ func (mw *MyCorsMiddleware) MiddlewareFunc(handler rest.HandlerFunc) rest.Handle
 func main() {
 
 	mainMedia := picast.Media{Metadata: &picast.PlaylistEntry{}}
-	api := picast.Api{CurrentMedia: &mainMedia}
-	api.InitDB()
+	/*api := picast.Api{CurrentMedia: &mainMedia}
+	api.InitDB()*/
 
 	log.Println("Server Started.")
 
@@ -102,14 +102,14 @@ func main() {
 		},
 	}
 	handler.SetRoutes(
-		&rest.Route{"GET", "/api/entries", api.GetAllEntries},
+		/*&rest.Route{"GET", "/api/entries", api.GetAllEntries},
 		&rest.Route{"GET", "/api/entries/:id", api.GetEntry},
 		&rest.Route{"POST", "/api/entries", api.PostEntry},
 		&rest.Route{"DELETE", "/api/entries/:id", api.DeleteEntry},
 
 		&rest.Route{"POST", "/api/playall", api.PlayAll},
 		&rest.Route{"POST", "/api/prev", api.Prev},
-		&rest.Route{"POST", "/api/next", api.Next},
+		&rest.Route{"POST", "/api/next", api.Next},*/
 
 		&rest.Route{"POST", "/media/play", mainMedia.Play},
 		&rest.Route{"GET", "/media/pause", mainMedia.TogglePause},

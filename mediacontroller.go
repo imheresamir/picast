@@ -12,11 +12,11 @@ import (
 	//"os/exec"
 )
 
-// Plays current entry. After completion, checks for more
+/*// Plays current entry. After completion, checks for more
 // playlist entries and plays them
 // Gets currently selected item from sidebar
 func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
-	/*// start from top of playlist
+	// start from top of playlist
 
 	switch {
 	case api.CurrentMedia.Player == nil:
@@ -43,7 +43,7 @@ func (api *Api) PlayAll(w rest.ResponseWriter, r *rest.Request) {
 
 	api.CurrentMedia.Metadata = &PlaylistEntry{}
 	api.CurrentMedia.Player = nil
-	w.WriteJson(&struct{ Server string }{Server: "Finished playlist."})*/
+	w.WriteJson(&struct{ Server string }{Server: "Finished playlist."})
 }
 
 func (api *Api) Next(w rest.ResponseWriter, r *rest.Request) {
@@ -58,7 +58,7 @@ func (api *Api) Next(w rest.ResponseWriter, r *rest.Request) {
 
 func (api *Api) Prev(w rest.ResponseWriter, r *rest.Request) {
 
-}
+}*/
 
 func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	entry := PlaylistEntry{Id: 0, Url: ""}
