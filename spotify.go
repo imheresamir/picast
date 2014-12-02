@@ -147,7 +147,7 @@ func (spotty *SpotifyPlayer) Play() {
 
 	spotty.Duration = track.Duration()
 
-	go spotty.watchPosition()
+	//go spotty.watchPosition()
 
 	var artists []string
 	for i := 0; i < track.Artists(); i++ {
@@ -192,7 +192,7 @@ func (spotty *SpotifyPlayer) TogglePause() {
 	} else if spotty.Status == PAUSED {
 		Player.Play()
 		spotty.Status = PLAYING
-		go spotty.watchPosition()
+		//go spotty.watchPosition()
 	}
 }
 
