@@ -85,6 +85,7 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	switch {
 	case strings.Contains(entry.Url, "spotify"):
 		spotifyUri := "spotify"
+		var spotifyLogin spotify.Credentials
 
 		re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+)`)
 		matches := re.FindAllStringSubmatch(entry.Url, -1)
@@ -103,24 +104,33 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 			break
 		}
 
-		switch entry.Data.(type) {
-		case map[string]interface{}:
-			login := entry.Data.(map[string]interface{})
-			//entry.Data = nil
+		if entry.Data != nil {
+			switch entry.Data.(type) {
+			case map[string]interface{}:
+				login := entry.Data.(map[string]interface{})
+				//entry.Data = nil
 
-			media.Player = &SpotifyPlayer{
-				Outfile:    entry.Url,
-				KillSwitch: make(chan int, 1),
-				Login: spotify.Credentials{
+				spotifyLogin = spotify.Credentials{
 					Username: login["Username"].(string),
 					Password: login["Password"].(string),
-				},
+				}
+			default:
+				log.Println("Could not log in to Spotify.")
+				break
 			}
-			go media.Player.Play()
-		default:
-			log.Println("Could not log in to Spotify.")
-			break
+		} else {
+			spotifyLogin = spotify.Credentials{
+				Username: Username,
+				Password: Password,
+			}
 		}
+
+		media.Player = &SpotifyPlayer{
+			Outfile:    entry.Url,
+			KillSwitch: make(chan int, 1),
+			Login:      spotifyLogin,
+		}
+		go media.Player.Play()
 
 	default:
 		outfile, err := YoutubeDl(entry)

@@ -67,3 +67,8 @@ type SpotifyPlayer struct {
 
 	Login spotify.Credentials
 }
+
+var (
+	Username string
+	Password string
+)
