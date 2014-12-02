@@ -1,10 +1,7 @@
 res/cache/*
 res/*
 *.bin
-<<<<<<< HEAD
 static/src/serverConfig.js
-=======
->>>>>>> 0e1ab26082488321e53e3dd348f7fe20bcd39649
 
 # OS generated files #
 ######################
