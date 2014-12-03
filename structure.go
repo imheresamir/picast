@@ -1,15 +1,15 @@
 package picast
 
 import (
-	"database/sql"
+	/*"database/sql"*/
 	"github.com/op/go-libspotify/spotify"
 	"time"
 )
 
-type Api struct {
+/*type Api struct {
 	DB           *sql.DB
 	CurrentMedia *Media
-}
+}*/
 
 // Matches database schema
 type PlaylistEntry struct {

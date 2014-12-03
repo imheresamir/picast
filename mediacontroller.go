@@ -80,6 +80,9 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 
 	}
 
+	// Sanitize url string
+	entry.Url = strings.Trim(entry.Url, " \n")
+
 	log.Println(entry)
 
 	switch {
@@ -91,7 +94,7 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		matches := re.FindAllStringSubmatch(entry.Url, -1)
 
 		for i := range matches {
-			for j := range matches[0] {
+			for j := range matches[i] {
 				if j != 0 && matches[i][j] != "" {
 					spotifyUri += ":"
 					spotifyUri += matches[i][j]
@@ -133,13 +136,15 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		go media.Player.Play()
 
 	default:
-		outfile, err := YoutubeDl(entry)
-		if err != nil {
-			log.Println("Youtube-dl could not find video link.")
-		} else {
-			media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
-			go media.Player.Play()
-		}
+		go func() {
+			outfile, err := YoutubeDl(entry)
+			if err != nil {
+				log.Println("Youtube-dl could not find video link.")
+			} else {
+				media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
+				go media.Player.Play()
+			}
+		}()
 	}
 
 	media.Metadata = &entry

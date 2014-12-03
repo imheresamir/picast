@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+var (
+	OmxProcess *exec.Cmd
+)
+
 func (video *OmxPlayer) StatusCode() int {
 	return video.Status
 }
@@ -18,7 +22,6 @@ func (video *OmxPlayer) ReturnCode() int {
 }
 
 func (video *OmxPlayer) Play() {
-	video.Status = STOPPED
 
 	if video.Outfile == "" {
 		return
@@ -27,11 +30,11 @@ func (video *OmxPlayer) Play() {
 	video.Status = LOADING
 
 	// Start video
-	cmd := exec.Command("omxplayer", "-I", video.Outfile)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	OmxProcess = exec.Command("omxplayer", "-I", video.Outfile)
+	OmxProcess.Stdout = os.Stdout
+	OmxProcess.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err := OmxProcess.Start()
 	if err != nil {
 		log.Println(err)
 	}
@@ -100,7 +103,22 @@ func (video *OmxPlayer) Stop(signal int) {
 	if video.Status == STOPPED {
 		return
 	}
-	// TODO: Stop process here
+
+	for {
+		cmd := exec.Command("util/dbuscontrol.sh", "stop")
+
+		err := cmd.Run()
+		if err == nil {
+			break
+		}
+
+	}
+
+	if OmxProcess != nil {
+		OmxProcess.Process.Kill()
+		OmxProcess.Process.Wait()
+		OmxProcess = nil
+	}
 
 	log.Println("Video stopped.")
 

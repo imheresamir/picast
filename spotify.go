@@ -57,7 +57,6 @@ func (spotty *SpotifyPlayer) ReturnCode() int {
 }
 
 func (spotty *SpotifyPlayer) Play() {
-	spotty.Status = STOPPED
 	defer func() {
 		spotty.Status = STOPPED
 	}()
@@ -188,8 +187,12 @@ func (spotty *SpotifyPlayer) TogglePause() {
 
 	if spotty.Status == PLAYING {
 		Player.Pause()
+
+		Audio.Pause()
 		spotty.Status = PAUSED
 	} else if spotty.Status == PAUSED {
+		Audio.Resume()
+
 		Player.Play()
 		spotty.Status = PLAYING
 		//go spotty.watchPosition()
@@ -241,16 +244,20 @@ type audio struct {
 
 // audioWriter takes audio from libspotify and outputs it through PortAudio.
 type audioWriter struct {
-	input chan audio
-	quit  chan bool
-	wg    sync.WaitGroup
+	input  chan audio
+	quit   chan bool
+	pause  chan bool
+	resume chan bool
+	wg     sync.WaitGroup
 }
 
 // newAudioWriter creates a new audioWriter handler.
 func newAudioWriter() (*audioWriter, error) {
 	w := &audioWriter{
-		input: make(chan audio, audioInputBufferSize),
-		quit:  make(chan bool, 1),
+		input:  make(chan audio, audioInputBufferSize),
+		quit:   make(chan bool, 1),
+		pause:  make(chan bool, 1),
+		resume: make(chan bool, 1),
 	}
 
 	stream, err := newPortAudioStream()
@@ -270,6 +277,16 @@ func (w *audioWriter) Close() error {
 	default:
 	}
 	w.wg.Wait()
+	return nil
+}
+
+func (w *audioWriter) Pause() error {
+	w.pause <- true
+	return nil
+}
+
+func (w *audioWriter) Resume() error {
+	w.resume <- true
 	return nil
 }
 
@@ -295,31 +312,52 @@ func (w *audioWriter) streamWriter(stream *portAudioStream) {
 	for {
 		// Wait for input data or signal to quit.
 		var input audio
+		processAudio := true
 		select {
 		case input = <-w.input:
 		case <-w.quit:
 			return
-		}
+		case <-w.pause:
+			if stream != nil {
+				if err := stream.stream.Stop(); err != nil {
+					log.Println(err)
+				}
 
-		// Initialize the audio stream based on the specification of the input format.
-		err := stream.Stream(&output, input.format.Channels, input.format.SampleRate)
-		if err != nil {
-			panic(err)
-		}
+				processAudio = false
+			}
+		case <-w.resume:
+			if stream != nil {
+				if err := stream.stream.Start(); err != nil {
+					log.Println(err)
+				}
 
-		// Decode the incoming data which is expected to be 2 channels and
-		// delivered as int16 in []byte, hence we need to convert it.
-		i := 0
-		for i < len(input.frames) {
-			j := 0
-			for j < len(buffer) && i < len(input.frames) {
-				buffer[j] = int16(input.frames[i]) | int16(input.frames[i+1])<<8
-				j += 1
-				i += 2
+				processAudio = true
+				input = <-w.input
 			}
 
-			output = buffer[:j]
-			stream.Write()
+		}
+
+		if processAudio == true {
+			// Initialize the audio stream based on the specification of the input format.
+			err := stream.Stream(&output, input.format.Channels, input.format.SampleRate)
+			if err != nil {
+				panic(err)
+			}
+
+			// Decode the incoming data which is expected to be 2 channels and
+			// delivered as int16 in []byte, hence we need to convert it.
+			i := 0
+			for i < len(input.frames) {
+				j := 0
+				for j < len(buffer) && i < len(input.frames) {
+					buffer[j] = int16(input.frames[i]) | int16(input.frames[i+1])<<8
+					j += 1
+					i += 2
+				}
+
+				output = buffer[:j]
+				stream.Write()
+			}
 		}
 	}
 }
