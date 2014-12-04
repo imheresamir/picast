@@ -13,14 +13,21 @@ import (
 
 // Matches database schema
 type PlaylistEntry struct {
-	Id   int
+	Title   string
+	Artists []string
+	Album   string
+	ArtPath string
+}
+
+type ServerObject struct {
 	Url  string
 	Data interface{}
 }
 
 type Media struct {
-	Metadata *PlaylistEntry
-	Player   MediaPlayer
+	Metadata     *PlaylistEntry
+	Player       MediaPlayer
+	MediaChanged chan bool
 }
 
 type ServerStatus struct {
@@ -65,10 +72,13 @@ type SpotifyPlayer struct {
 	KillSwitch chan int // Signal to break out of WatchPosition and clear struct
 	// internal stop signal = 1, external stop signal = -1
 
-	Login spotify.Credentials
+	TrackInfo chan *PlaylistEntry
 }
 
 var (
-	Username string
-	Password string
+	SpotifyLogin spotify.Credentials
 )
+
+type Display struct {
+	Update chan *PlaylistEntry
+}

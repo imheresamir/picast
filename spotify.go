@@ -38,14 +38,24 @@ import (
 
 	"code.google.com/p/portaudio-go/portaudio"
 	"github.com/op/go-libspotify/spotify"
+
+	"image/jpeg"
+	"os"
 )
 
 // PiCast Spotify MediaPlayer
 
 var (
-	Player  *spotify.Player
-	Audio   *audioWriter
-	Session *spotify.Session
+	Audio       *audioWriter
+	AudioOpened bool
+
+	Session         *spotify.Session
+	SessionOpened   bool
+	SessionLoggedIn bool
+
+	Player       *spotify.Player
+	PlayerOpened bool
+	PlayerLoaded bool
 )
 
 func (spotty *SpotifyPlayer) StatusCode() int {
@@ -58,7 +68,7 @@ func (spotty *SpotifyPlayer) ReturnCode() int {
 
 func (spotty *SpotifyPlayer) Play() {
 	defer func() {
-		spotty.Status = STOPPED
+		spotty.Stop(1)
 	}()
 
 	if spotty.Outfile == "" {
@@ -78,13 +88,13 @@ func (spotty *SpotifyPlayer) Play() {
 		log.Println(err)
 		return
 	}
-	defer Audio.Close()
+	AudioOpened = true
 
 	Session, err = spotify.NewSession(&spotify.Config{
 		ApplicationKey:   appKey,
 		ApplicationName:  "picast",
 		CacheLocation:    "res/cache",
-		SettingsLocation: "res",
+		SettingsLocation: "res/cache",
 		AudioConsumer:    Audio,
 
 		// Disable playlists to make playback faster
@@ -95,12 +105,13 @@ func (spotty *SpotifyPlayer) Play() {
 		log.Println(err)
 		return
 	}
-	defer Session.Close()
+	SessionOpened = true
 
-	if err = Session.Login(spotty.Login, false); err != nil {
+	if err = Session.Login(SpotifyLogin, false); err != nil {
 		log.Println(err)
 		return
 	}
+	SessionLoggedIn = true
 
 	// Log messages
 
@@ -138,11 +149,27 @@ func (spotty *SpotifyPlayer) Play() {
 	if err := Player.Load(track); err != nil {
 		fmt.Println("%#v", err)
 	}
+	PlayerLoaded = true
 
 	Player.Play()
 	spotty.Status = PLAYING
 
 	track.Wait()
+
+	artfile := "cache/art.jpg"
+	os.Remove("res/" + artfile)
+	image, err := track.Album().Cover(spotify.ImageSizeLarge)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		// TODO: Add error checking and refactor
+		image.Wait()
+		toimg, _ := os.Create("res/" + artfile)
+		img, _, _ := image.Decode()
+		jpeg.Encode(toimg, img, &jpeg.Options{jpeg.DefaultQuality})
+		toimg.Close()
+
+	}
 
 	spotty.Duration = track.Duration()
 
@@ -152,14 +179,16 @@ func (spotty *SpotifyPlayer) Play() {
 	for i := 0; i < track.Artists(); i++ {
 		artists = append(artists, track.Artist(i).Name())
 	}
-	/*	info := fmt.Sprintf(" %s - %s - %s -",
-		strings.Join(artists, ", "),
-		track.Album().Name(),
-		track.Name(),
-	)*/
+
+	spotty.TrackInfo <- &PlaylistEntry{
+		Title:   track.Name(),
+		Artists: artists,
+		Album:   track.Album().Name(),
+		ArtPath: artfile,
+	}
+	log.Println("Spotify sent track info.")
 
 	<-Session.EndOfTrackUpdates()
-	spotty.Stop(1)
 }
 
 func (spotty *SpotifyPlayer) watchPosition() {
@@ -204,18 +233,30 @@ func (spotty *SpotifyPlayer) Stop(signal int) {
 		return
 	}
 
-	Player.Unload()
-
-	Session.Logout()
-
-	err := Session.Close()
-	if err != nil {
-		log.Println(err)
+	if PlayerLoaded == true {
+		Player.Unload()
+		PlayerLoaded = false
 	}
 
-	err = Audio.Close()
-	if err != nil {
-		log.Println(err)
+	if SessionLoggedIn == true {
+		Session.Logout()
+		SessionLoggedIn = false
+	}
+
+	if SessionOpened == true {
+		err := Session.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		SessionOpened = false
+	}
+
+	if AudioOpened == true {
+		err := Audio.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		AudioOpened = false
 	}
 
 	log.Println("Track stopped.")

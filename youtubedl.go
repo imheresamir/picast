@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-func YoutubeDl(entry PlaylistEntry) (string, error) {
-	video_link_bytes, err := exec.Command("youtube-dl", "-g", entry.Url).Output()
+func YoutubeDl(url string) (string, error) {
+	video_link_bytes, err := exec.Command("youtube-dl", "-g", url).Output()
 	if err != nil {
 		log.Println(err)
 	}

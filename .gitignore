@@ -1,5 +1,5 @@
 res/cache/*
-res/*
+res/spotify_appkey.key
 *.bin
 static/src/serverConfig.js
 

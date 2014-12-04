@@ -5,6 +5,7 @@ import (
 	"github.com/antage/eventsource"
 	"github.com/gorilla/mux"
 	"github.com/imheresamir/picast"
+	"github.com/op/go-libspotify/spotify"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,15 +20,27 @@ const (
 	restPort       = "8082"
 )
 
-func main() {
+var (
+	mainDisplay picast.Display
+	mainMedia   picast.Media
+)
 
-	flag.StringVar(&picast.Username, "username", "", "Username")
-	flag.StringVar(&picast.Password, "password", "", "Password")
+func main() {
+	picast.SpotifyLogin = spotify.Credentials{}
+	flag.StringVar(&picast.SpotifyLogin.Username, "username", "", "Username")
+	flag.StringVar(&picast.SpotifyLogin.Password, "password", "", "Password")
 	flag.Parse()
 
-	mainMedia := picast.Media{Metadata: &picast.PlaylistEntry{}}
-	/*api := picast.Api{CurrentMedia: &mainMedia}
-	api.InitDB()*/
+	go RunServer()
+	mainDisplay = picast.Display{}
+	mainDisplay.Init()
+
+}
+
+func RunServer() {
+
+	mainMedia = picast.Media{Metadata: &picast.PlaylistEntry{}, MediaChanged: make(chan bool)}
+	mainMedia.Init()
 
 	log.Println("Server Started.")
 
@@ -72,19 +85,27 @@ func main() {
 		currentState := 0
 
 		for {
-			if mainMedia.Player != nil && currentState != mainMedia.Player.StatusCode() {
-				switch mainMedia.Player.StatusCode() {
-				case 0:
-					es.SendEventMessage("stopped", "playerStateChanged", "")
-				case 2:
-					es.SendEventMessage("paused", "playerStateChanged", "")
-				case 3:
-					es.SendEventMessage("playing", "playerStateChanged", "")
+			select {
+			case <-mainMedia.MediaChanged:
+				mainDisplay.Update <- mainMedia.Metadata
+				log.Println("Sent update to display.")
+			default:
+				if mainMedia.Player != nil && currentState != mainMedia.Player.StatusCode() {
+
+					switch mainMedia.Player.StatusCode() {
+					case 0:
+						es.SendEventMessage("stopped", "playerStateChanged", "")
+					case 2:
+						es.SendEventMessage("paused", "playerStateChanged", "")
+					case 3:
+						es.SendEventMessage("playing", "playerStateChanged", "")
+						log.Println("Media playing.")
+					}
+
+					log.Println("Server Event Sent.")
+
+					currentState = mainMedia.Player.StatusCode()
 				}
-
-				log.Println("Server Event Sent.")
-
-				currentState = mainMedia.Player.StatusCode()
 			}
 
 			time.Sleep(250 * time.Millisecond)
