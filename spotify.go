@@ -45,19 +45,6 @@ import (
 
 // PiCast Spotify MediaPlayer
 
-var (
-	Audio       *audioWriter
-	AudioOpened bool
-
-	Session         *spotify.Session
-	SessionOpened   bool
-	SessionLoggedIn bool
-
-	Player       *spotify.Player
-	PlayerOpened bool
-	PlayerLoaded bool
-)
-
 func (spotty *SpotifyPlayer) StatusCode() int {
 	return spotty.Status
 }
@@ -67,9 +54,42 @@ func (spotty *SpotifyPlayer) ReturnCode() int {
 }
 
 func (spotty *SpotifyPlayer) Play() {
-	defer func() {
-		spotty.Stop(1)
-	}()
+	if spotty.Status == STOPPED {
+		go spotty.SpotifyThread()
+	} else {
+		spotty.ChangeTrack <- true
+	}
+}
+
+func (spotty *SpotifyPlayer) TogglePause() {
+	/*if spotty.Status < PAUSED {
+		return
+	}*/
+
+	if spotty.Status == PLAYING {
+		spotty.PauseTrack <- true
+		spotty.Status = PAUSED
+	} else if spotty.Status == PAUSED {
+		spotty.ResumeTrack <- true
+		spotty.Status = PLAYING
+		//go spotty.watchPosition()
+	}
+
+	// Prevent funky race conditions
+	//time.Sleep(1 * time.Second)
+}
+
+func (spotty *SpotifyPlayer) Stop(signal int) {
+	spotty.StopTrack <- true
+
+	spotty.Status = STOPPED
+
+	log.Println("Track stopped.")
+
+	spotty.KillSwitch <- signal
+}
+
+func (spotty *SpotifyPlayer) SpotifyThread() {
 
 	if spotty.Outfile == "" {
 		return
@@ -83,14 +103,18 @@ func (spotty *SpotifyPlayer) Play() {
 		return
 	}
 
-	Audio, err = newAudioWriter()
+	log.Print("Opening AudioWriter....")
+	Audio, err := newAudioWriter()
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	AudioOpened = true
+	defer Audio.Close()
+	//log.Println(" done.")
 
-	Session, err = spotify.NewSession(&spotify.Config{
+	log.Print("Creating Spotify session....")
+
+	Session, err := spotify.NewSession(&spotify.Config{
 		ApplicationKey:   appKey,
 		ApplicationName:  "picast",
 		CacheLocation:    "res/cache",
@@ -105,13 +129,8 @@ func (spotty *SpotifyPlayer) Play() {
 		log.Println(err)
 		return
 	}
-	SessionOpened = true
-
-	if err = Session.Login(SpotifyLogin, false); err != nil {
-		log.Println(err)
-		return
-	}
-	SessionLoggedIn = true
+	defer Session.Close()
+	//log.Println(" done.")
 
 	// Log messages
 
@@ -124,71 +143,126 @@ func (spotty *SpotifyPlayer) Play() {
 		}()
 	}
 
+	log.Print("Logging in....")
+
+	if err = Session.Login(SpotifyLogin, true); err != nil {
+		log.Println(err)
+		return
+	}
+
 	// Wait for login and expect it to go fine
 	err = <-Session.LoggedInUpdates()
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	defer Session.Logout()
 
-	// Parse the track
-	link, err := Session.ParseLink(spotty.Outfile)
-	if err != nil {
-		log.Println(err)
-		return
+	newTrack := true
+	var Player *spotify.Player
+
+	for {
+		if newTrack == true {
+			// Parse the track
+			link, err := Session.ParseLink(spotty.Outfile)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			track, err := link.Track()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			// Load the track and play it
+			track.Wait()
+			Player = Session.Player()
+			if err := Player.Load(track); err != nil {
+				fmt.Println("%#v", err)
+			}
+
+			Player.Play()
+
+			if spotty.Status == PAUSED {
+				Audio.Resume()
+			}
+
+			track.Wait()
+
+			artfile := "cache/art.jpg"
+			spotty.wg.Add(1)
+			go func() {
+				os.Remove("res/" + artfile)
+				image, err := track.Album().Cover(spotify.ImageSizeLarge)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					// TODO: Add error checking and refactor
+					image.Wait()
+					toimg, _ := os.Create("res/" + artfile)
+					img, _, _ := image.Decode()
+					jpeg.Encode(toimg, img, &jpeg.Options{jpeg.DefaultQuality})
+					toimg.Close()
+
+				}
+
+				spotty.Duration = track.Duration()
+
+				//go spotty.watchPosition()
+
+				var artists []string
+				for i := 0; i < track.Artists(); i++ {
+					artists = append(artists, track.Artist(i).Name())
+				}
+
+				spotty.TrackInfo <- &PlaylistEntry{
+					Title:   track.Name(),
+					Artists: artists,
+					Album:   track.Album().Name(),
+					ArtPath: artfile,
+				}
+				log.Println("Spotify sent track info.")
+
+				spotty.wg.Done()
+			}()
+
+			newTrack = false
+			spotty.Status = PLAYING
+		}
+
+		select {
+		case <-Session.EndOfTrackUpdates():
+			spotty.Stop(1)
+		case <-spotty.ChangeTrack:
+			log.Println("Changing track")
+			if spotty.Status == PLAYING {
+				Audio.Pause()
+				time.Sleep(50 * time.Millisecond)
+				Player.Pause()
+				spotty.Status = PAUSED
+			}
+			Player.Unload()
+			newTrack = true
+			continue
+		case <-spotty.StopTrack:
+			spotty.wg.Wait()
+			Player.Unload()
+			return
+		case <-spotty.PauseTrack:
+			Audio.Pause()
+			time.Sleep(50 * time.Millisecond)
+			Player.Pause()
+			//time.Sleep(500 * time.Millisecond)
+			//Audio.Pause()
+			continue
+		case <-spotty.ResumeTrack:
+			log.Println("Resuming")
+			Audio.Resume()
+			Player.Play()
+			continue
+		}
 	}
-	track, err := link.Track()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	// Load the track and play it
-	track.Wait()
-	Player = Session.Player()
-	if err := Player.Load(track); err != nil {
-		fmt.Println("%#v", err)
-	}
-	PlayerLoaded = true
-
-	Player.Play()
-	spotty.Status = PLAYING
-
-	track.Wait()
-
-	artfile := "cache/art.jpg"
-	os.Remove("res/" + artfile)
-	image, err := track.Album().Cover(spotify.ImageSizeLarge)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		// TODO: Add error checking and refactor
-		image.Wait()
-		toimg, _ := os.Create("res/" + artfile)
-		img, _, _ := image.Decode()
-		jpeg.Encode(toimg, img, &jpeg.Options{jpeg.DefaultQuality})
-		toimg.Close()
-
-	}
-
-	spotty.Duration = track.Duration()
-
-	//go spotty.watchPosition()
-
-	var artists []string
-	for i := 0; i < track.Artists(); i++ {
-		artists = append(artists, track.Artist(i).Name())
-	}
-
-	spotty.TrackInfo <- &PlaylistEntry{
-		Title:   track.Name(),
-		Artists: artists,
-		Album:   track.Album().Name(),
-		ArtPath: artfile,
-	}
-	log.Println("Spotify sent track info.")
-
-	<-Session.EndOfTrackUpdates()
 }
 
 func (spotty *SpotifyPlayer) watchPosition() {
@@ -207,62 +281,6 @@ func (spotty *SpotifyPlayer) watchPosition() {
 		//log.Println("Position: ", spotty.Position, "Duration: ", spotty.Duration)
 	}
 
-}
-
-func (spotty *SpotifyPlayer) TogglePause() {
-	if spotty.Status < PAUSED {
-		return
-	}
-
-	if spotty.Status == PLAYING {
-		Player.Pause()
-
-		Audio.Pause()
-		spotty.Status = PAUSED
-	} else if spotty.Status == PAUSED {
-		Audio.Resume()
-
-		Player.Play()
-		spotty.Status = PLAYING
-		//go spotty.watchPosition()
-	}
-}
-
-func (spotty *SpotifyPlayer) Stop(signal int) {
-	if spotty.Status == STOPPED {
-		return
-	}
-
-	if PlayerLoaded == true {
-		Player.Unload()
-		PlayerLoaded = false
-	}
-
-	if SessionLoggedIn == true {
-		Session.Logout()
-		SessionLoggedIn = false
-	}
-
-	if SessionOpened == true {
-		err := Session.Close()
-		if err != nil {
-			log.Println(err)
-		}
-		SessionOpened = false
-	}
-
-	if AudioOpened == true {
-		err := Audio.Close()
-		if err != nil {
-			log.Println(err)
-		}
-		AudioOpened = false
-	}
-
-	log.Println("Track stopped.")
-
-	spotty.Status = STOPPED
-	spotty.KillSwitch <- signal
 }
 
 // Core helpers
@@ -301,11 +319,12 @@ func newAudioWriter() (*audioWriter, error) {
 		resume: make(chan bool, 1),
 	}
 
+	log.Print("Opening portaudio stream...")
 	stream, err := newPortAudioStream()
 	if err != nil {
 		return w, err
 	}
-
+	log.Println(" done.")
 	w.wg.Add(1)
 	go w.streamWriter(stream)
 	return w, nil
@@ -318,6 +337,12 @@ func (w *audioWriter) Close() error {
 	default:
 	}
 	w.wg.Wait()
+
+	close(w.input)
+	close(w.quit)
+	close(w.pause)
+	close(w.resume)
+
 	return nil
 }
 
@@ -360,7 +385,8 @@ func (w *audioWriter) streamWriter(stream *portAudioStream) {
 			return
 		case <-w.pause:
 			if stream != nil {
-				if err := stream.stream.Stop(); err != nil {
+				//if err := stream.stream.Stop(); err != nil {
+				if err := stream.stream.Abort(); err != nil {
 					log.Println(err)
 				}
 
@@ -417,14 +443,19 @@ type portAudioStream struct {
 // device found on the system. It will also take care of automatically
 // initialise the PortAudio API.
 func newPortAudioStream() (*portAudioStream, error) {
+	log.Print("Initializing PortAudio...")
 	if err := portaudio.Initialize(); err != nil {
 		return nil, err
 	}
+	log.Print(" done.")
+
+	log.Print("Creating PortAudio stream...")
 	out, err := portaudio.DefaultHostApi()
 	if err != nil {
 		portaudio.Terminate()
 		return nil, err
 	}
+	log.Print(" done.")
 	return &portAudioStream{device: out.DefaultOutputDevice}, nil
 }
 
@@ -434,7 +465,12 @@ func (s *portAudioStream) Close() error {
 		portaudio.Terminate()
 		return err
 	}
-	return portaudio.Terminate()
+	if err := portaudio.Terminate(); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
 }
 
 func (s *portAudioStream) reset() error {

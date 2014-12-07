@@ -3,6 +3,7 @@ package picast
 import (
 	/*"database/sql"*/
 	"github.com/op/go-libspotify/spotify"
+	"sync"
 	"time"
 )
 
@@ -73,6 +74,13 @@ type SpotifyPlayer struct {
 	// internal stop signal = 1, external stop signal = -1
 
 	TrackInfo chan *PlaylistEntry
+
+	ChangeTrack chan bool
+	StopTrack   chan bool
+	PauseTrack  chan bool
+	ResumeTrack chan bool
+
+	wg sync.WaitGroup
 }
 
 var (

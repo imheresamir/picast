@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	//"sync"
 	//"os"
 	//"io/ioutil"
 	//"os/exec"
@@ -35,8 +36,7 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	case object.Url == "":
 		rest.NotFound(w, r)
 		return
-	case media.Player != nil:
-		media.Stop(w, r)
+
 	}
 
 	if object.Data != nil {
@@ -59,9 +59,9 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	object.Url = strings.Trim(object.Url, " \n")
 	log.Println(object)
 
-	go media.PlayAll(object.Url)
+	media.PlayAll(object.Url)
 
-	w.WriteJson(media.StatusBuilder())
+	w.WriteJson(&ServerStatus{Server: "Media playing."})
 
 }
 
@@ -92,10 +92,34 @@ func (media *Media) PlayAll(url string) {
 			return
 		}
 
-		media.Player = &SpotifyPlayer{
-			Outfile:    spotifyUri,
-			KillSwitch: make(chan int, 1),
-			TrackInfo:  make(chan *PlaylistEntry),
+		if media.Player != nil && media.Player.StatusCode() != STOPPED {
+			switch media.Player.(type) {
+			case *SpotifyPlayer:
+				media.Player.(*SpotifyPlayer).Outfile = spotifyUri
+				//go media.Player.Play()
+			default:
+				media.Player.Stop(-1)
+
+				media.Player = &SpotifyPlayer{
+					Outfile:     spotifyUri,
+					KillSwitch:  make(chan int, 1),
+					TrackInfo:   make(chan *PlaylistEntry),
+					ChangeTrack: make(chan bool),
+					PauseTrack:  make(chan bool),
+					ResumeTrack: make(chan bool),
+					StopTrack:   make(chan bool),
+				}
+			}
+		} else {
+			media.Player = &SpotifyPlayer{
+				Outfile:     spotifyUri,
+				KillSwitch:  make(chan int, 1),
+				TrackInfo:   make(chan *PlaylistEntry),
+				ChangeTrack: make(chan bool),
+				PauseTrack:  make(chan bool),
+				ResumeTrack: make(chan bool),
+				StopTrack:   make(chan bool),
+			}
 		}
 
 		go func() {
@@ -108,7 +132,7 @@ func (media *Media) PlayAll(url string) {
 			}
 		}()
 
-		media.Player.Play()
+		go media.Player.Play()
 
 		/*log.Println("TEST sleep...")
 		time.Sleep(5 * time.Second)*/
@@ -118,7 +142,11 @@ func (media *Media) PlayAll(url string) {
 		if err != nil {
 			log.Println("Youtube-dl could not find video link.")
 		} else {
+			if media.Player != nil {
+				media.Player.Stop(-1)
+			}
 			media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
+
 			go media.Player.Play()
 		}
 	}
@@ -159,10 +187,12 @@ func (media *Media) TogglePause(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func (media *Media) Stop(w rest.ResponseWriter, r *rest.Request) {
-	if media.Player != nil && media.Player.StatusCode() > 0 {
+	if media.Player != nil /* && media.Player.StatusCode() > 0 */ {
 		media.Player.Stop(-1)
-		media.Player = nil
+		//media.Player = nil
+		//media.Player.ReturnCode()
 	}
 
-	w.WriteJson(media.StatusBuilder())
+	//w.WriteJson(media.StatusBuilder())
+	w.WriteJson(&ServerStatus{Server: "Media stopped."})
 }

@@ -37,6 +37,8 @@ func (video *OmxPlayer) Play() {
 	err := OmxProcess.Start()
 	if err != nil {
 		log.Println(err)
+		video.Status = STOPPED
+		return
 	}
 
 	// Initialize OmxPlayer struct

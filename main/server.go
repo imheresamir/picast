@@ -31,9 +31,10 @@ func main() {
 	flag.StringVar(&picast.SpotifyLogin.Password, "password", "", "Password")
 	flag.Parse()
 
-	go RunServer()
-	mainDisplay = picast.Display{}
-	mainDisplay.Init()
+	//go RunServer()
+	//mainDisplay = picast.Display{}
+	//mainDisplay.Init()
+	RunServer()
 
 }
 
@@ -87,7 +88,7 @@ func RunServer() {
 		for {
 			select {
 			case <-mainMedia.MediaChanged:
-				mainDisplay.Update <- mainMedia.Metadata
+				//mainDisplay.Update <- mainMedia.Metadata
 				log.Println("Sent update to display.")
 			default:
 				if mainMedia.Player != nil && currentState != mainMedia.Player.StatusCode() {
@@ -102,7 +103,7 @@ func RunServer() {
 						log.Println("Media playing.")
 					}
 
-					log.Println("Server Event Sent.")
+					//log.Println("Server Event: ", mainMedia.Player.StatusCode())
 
 					currentState = mainMedia.Player.StatusCode()
 				}
