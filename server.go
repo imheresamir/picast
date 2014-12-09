@@ -1,16 +1,14 @@
-package main
+package picast
 
 import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/antage/eventsource"
 	"github.com/gorilla/mux"
-	"github.com/imheresamir/picast"
-	"github.com/op/go-libspotify/spotify"
 	"io/ioutil"
 	"log"
 	"net/http"
 	//"strconv"
-	"flag"
+	//"flag"
 	"time"
 )
 
@@ -20,28 +18,10 @@ const (
 	restPort       = "8082"
 )
 
-var (
-	mainDisplay picast.Display
-	mainMedia   picast.Media
-)
+func RunServer(displayUpdates chan *PlaylistEntry) {
 
-func main() {
-	picast.SpotifyLogin = spotify.Credentials{}
-	flag.StringVar(&picast.SpotifyLogin.Username, "username", "", "Username")
-	flag.StringVar(&picast.SpotifyLogin.Password, "password", "", "Password")
-	flag.Parse()
-
-	//go RunServer()
-	//mainDisplay = picast.Display{}
-	//mainDisplay.Init()
-	RunServer()
-
-}
-
-func RunServer() {
-
-	mainMedia = picast.Media{Metadata: &picast.PlaylistEntry{}, MediaChanged: make(chan bool)}
-	mainMedia.Init()
+	MainMedia = Media{Metadata: &PlaylistEntry{}, MediaChanged: make(chan bool)}
+	MainMedia.Init()
 
 	log.Println("Server Started.")
 
@@ -62,10 +42,10 @@ func RunServer() {
 		&rest.Route{"POST", "/api/prev", api.Prev},
 		&rest.Route{"POST", "/api/next", api.Next},*/
 
-		&rest.Route{"POST", "/media/play", mainMedia.Play},
-		&rest.Route{"GET", "/media/pause", mainMedia.TogglePause},
-		&rest.Route{"GET", "/media/stop", mainMedia.Stop},
-		&rest.Route{"GET", "/media/status", mainMedia.Status},
+		&rest.Route{"POST", "/media/play", MainMedia.Play},
+		&rest.Route{"GET", "/media/pause", MainMedia.TogglePause},
+		&rest.Route{"GET", "/media/stop", MainMedia.Stop},
+		&rest.Route{"GET", "/media/status", MainMedia.Status},
 	)
 
 	go http.ListenAndServe(":"+restPort, &handler)
@@ -87,13 +67,13 @@ func RunServer() {
 
 		for {
 			select {
-			case <-mainMedia.MediaChanged:
-				//mainDisplay.Update <- mainMedia.Metadata
+			case <-MainMedia.MediaChanged:
+				displayUpdates <- MainMedia.Metadata
 				log.Println("Sent update to display.")
 			default:
-				if mainMedia.Player != nil && currentState != mainMedia.Player.StatusCode() {
+				if MainMedia.Player != nil && currentState != MainMedia.Player.StatusCode() {
 
-					switch mainMedia.Player.StatusCode() {
+					switch MainMedia.Player.StatusCode() {
 					case 0:
 						es.SendEventMessage("stopped", "playerStateChanged", "")
 					case 2:
@@ -103,9 +83,9 @@ func RunServer() {
 						log.Println("Media playing.")
 					}
 
-					//log.Println("Server Event: ", mainMedia.Player.StatusCode())
+					//log.Println("Server Event: ", MainMedia.Player.StatusCode())
 
-					currentState = mainMedia.Player.StatusCode()
+					currentState = MainMedia.Player.StatusCode()
 				}
 			}
 

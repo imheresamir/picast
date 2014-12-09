@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	//"strings"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +86,7 @@ func (spotty *SpotifyPlayer) Stop(signal int) {
 
 	log.Println("Track stopped.")
 
-	spotty.KillSwitch <- signal
+	//spotty.KillSwitch <- signal
 }
 
 func (spotty *SpotifyPlayer) SpotifyThread() {
@@ -199,6 +199,8 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 					fmt.Println(err)
 				} else {
 					// TODO: Add error checking and refactor
+					log.Println("Waiting for spotify image...")
+
 					image.Wait()
 					toimg, _ := os.Create("res/" + artfile)
 					img, _, _ := image.Decode()
@@ -215,10 +217,13 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 				for i := 0; i < track.Artists(); i++ {
 					artists = append(artists, track.Artist(i).Name())
 				}
+				artistString := strings.Join(artists, ", ")
+
+				log.Println("Trying to send data to display...")
 
 				spotty.TrackInfo <- &PlaylistEntry{
 					Title:   track.Name(),
-					Artists: artists,
+					Artist:  artistString,
 					Album:   track.Album().Name(),
 					ArtPath: artfile,
 				}
@@ -233,7 +238,15 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 
 		select {
 		case <-Session.EndOfTrackUpdates():
-			spotty.Stop(1)
+			go spotty.Stop(1)
+			<-spotty.StopTrack
+			spotty.wg.Wait()
+			Player.Unload()
+			return
+		case <-spotty.StopTrack:
+			spotty.wg.Wait()
+			Player.Unload()
+			return
 		case <-spotty.ChangeTrack:
 			log.Println("Changing track")
 			if spotty.Status == PLAYING {
@@ -245,16 +258,10 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 			Player.Unload()
 			newTrack = true
 			continue
-		case <-spotty.StopTrack:
-			spotty.wg.Wait()
-			Player.Unload()
-			return
 		case <-spotty.PauseTrack:
 			Audio.Pause()
 			time.Sleep(50 * time.Millisecond)
 			Player.Pause()
-			//time.Sleep(500 * time.Millisecond)
-			//Audio.Pause()
 			continue
 		case <-spotty.ResumeTrack:
 			log.Println("Resuming")

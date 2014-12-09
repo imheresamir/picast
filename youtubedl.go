@@ -5,11 +5,11 @@ import (
 	//"os"
 	"os/exec"
 	//"strconv"
-	"os"
+	//"os"
 	"strings"
 )
 
-func YoutubeDl(url string) (string, error) {
+func YoutubeDl(url string, result chan string) {
 	video_link_bytes, err := exec.Command("youtube-dl", "-g", url).Output()
 	if err != nil {
 		log.Println(err)
@@ -20,9 +20,10 @@ func YoutubeDl(url string) (string, error) {
 	switch {
 	case video_link == "":
 		log.Println("Could not find video link")
-		return "", os.ErrNotExist
+		result <- ""
 	}
 
 	video_link = strings.Trim(video_link, " \n")
-	return video_link, nil
+
+	result <- video_link
 }

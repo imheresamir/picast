@@ -4,5 +4,5 @@
 #SPOTIFYPCDIR=$SPOTIFYLIBS/lib/pkgconfig
 
 #export PKG_CONFIG_PATH=$SPOTIFYPCDIR
-go build -o server -x main/server.go main/ipaddr.go
+go build -o picast -x main/picast.go
 

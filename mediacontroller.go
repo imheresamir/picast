@@ -101,8 +101,8 @@ func (media *Media) PlayAll(url string) {
 				media.Player.Stop(-1)
 
 				media.Player = &SpotifyPlayer{
-					Outfile:     spotifyUri,
-					KillSwitch:  make(chan int, 1),
+					Outfile: spotifyUri,
+					//KillSwitch:  make(chan int, 1),
 					TrackInfo:   make(chan *PlaylistEntry),
 					ChangeTrack: make(chan bool),
 					PauseTrack:  make(chan bool),
@@ -112,8 +112,8 @@ func (media *Media) PlayAll(url string) {
 			}
 		} else {
 			media.Player = &SpotifyPlayer{
-				Outfile:     spotifyUri,
-				KillSwitch:  make(chan int, 1),
+				Outfile: spotifyUri,
+				//KillSwitch:  make(chan int, 1),
 				TrackInfo:   make(chan *PlaylistEntry),
 				ChangeTrack: make(chan bool),
 				PauseTrack:  make(chan bool),
@@ -138,13 +138,18 @@ func (media *Media) PlayAll(url string) {
 		time.Sleep(5 * time.Second)*/
 
 	default:
-		outfile, err := YoutubeDl(url)
-		if err != nil {
+		outfileChan := make(chan string)
+
+		go YoutubeDl(url, outfileChan)
+		outfile := <-outfileChan
+
+		if outfile == "" {
 			log.Println("Youtube-dl could not find video link.")
 		} else {
 			if media.Player != nil {
 				media.Player.Stop(-1)
 			}
+
 			media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
 
 			go media.Player.Play()

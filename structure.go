@@ -1,21 +1,19 @@
 package picast
 
 import (
-	/*"database/sql"*/
 	"github.com/op/go-libspotify/spotify"
 	"sync"
 	"time"
 )
 
-/*type Api struct {
-	DB           *sql.DB
-	CurrentMedia *Media
-}*/
+var (
+	MainMedia Media
+)
 
 // Matches database schema
 type PlaylistEntry struct {
 	Title   string
-	Artists []string
+	Artist  string
 	Album   string
 	ArtPath string
 }
@@ -27,7 +25,7 @@ type ServerObject struct {
 
 type Media struct {
 	Metadata     *PlaylistEntry
-	Player       MediaPlayer
+	Player       MediaPlayer // Eventually change to anonymous interface
 	MediaChanged chan bool
 }
 
@@ -86,7 +84,3 @@ type SpotifyPlayer struct {
 var (
 	SpotifyLogin spotify.Credentials
 )
-
-type Display struct {
-	Update chan *PlaylistEntry
-}

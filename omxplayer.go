@@ -31,6 +31,7 @@ func (video *OmxPlayer) Play() {
 
 	// Start video
 	OmxProcess = exec.Command("omxplayer", "-I", video.Outfile)
+	//OmxProcess = exec.Command("vlc", video.Outfile)
 	OmxProcess.Stdout = os.Stdout
 	OmxProcess.Stderr = os.Stderr
 

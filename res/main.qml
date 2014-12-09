@@ -24,4 +24,56 @@ ApplicationWindow {
         fillMode: Image.PreserveAspectFit
         source: currentTrack.artPath
     }
+
+    Text {
+        id: titleText
+        y: 398
+        width: 445
+        height: 65
+        color: "#ffffff"
+        text: qsTr(currentTrack.title)
+        anchors.bottom: art.top
+        anchors.bottomMargin: -192
+        anchors.left: art.horizontalCenter
+        anchors.leftMargin: 55
+        verticalAlignment: Text.AlignTop
+        horizontalAlignment: Text.AlignLeft
+        font.family: "Verdana"
+        font.bold: true
+        font.pixelSize: 50
+    }
+
+    Text {
+        id: artistText
+        width: 445
+        height: 40
+        color: "#ffffff"
+        text: qsTr(currentTrack.artist)
+        anchors.top: titleText.bottom
+        anchors.topMargin: -6
+        anchors.left: art.right
+        anchors.leftMargin: -265
+        verticalAlignment: Text.AlignVCenter
+        font.pixelSize: 25
+        font.bold: false
+        font.family: "Verdana"
+        horizontalAlignment: Text.AlignLeft
+    }
+
+    Text {
+        id: albumText
+        width: 445
+        height: 40
+        color: "#ffffff"
+        text: qsTr(currentTrack.album)
+        anchors.top: artistText.bottom
+        anchors.topMargin: -6
+        anchors.left: art.right
+        anchors.leftMargin: -265
+        verticalAlignment: Text.AlignVCenter
+        font.pixelSize: 25
+        font.bold: false
+        font.family: "Verdana"
+        horizontalAlignment: Text.AlignLeft
+    }
 }
