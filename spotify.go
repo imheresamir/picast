@@ -1,4 +1,4 @@
-// Copyright 2014 Samir Bhatt
+// Copyright 2013 Örjan Persson
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Copyright 2013 Örjan Persson
+// Copyright 2014 Samir Bhatt
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"time"
+	//"time"
 
 	"code.google.com/p/portaudio-go/portaudio"
 	"github.com/op/go-libspotify/spotify"
@@ -86,7 +86,7 @@ func (spotty *SpotifyPlayer) Stop(signal int) {
 
 	log.Println("Track stopped.")
 
-	//spotty.KillSwitch <- signal
+	spotty.KillSwitch <- signal
 }
 
 func (spotty *SpotifyPlayer) SpotifyThread() {
@@ -110,7 +110,6 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 		return
 	}
 	defer Audio.Close()
-	//log.Println(" done.")
 
 	log.Print("Creating Spotify session....")
 
@@ -122,15 +121,14 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 		AudioConsumer:    Audio,
 
 		// Disable playlists to make playback faster
-		DisablePlaylistMetadataCache: true,
-		InitiallyUnloadPlaylists:     true,
+		//DisablePlaylistMetadataCache: true,
+		//InitiallyUnloadPlaylists:     true,
 	})
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	defer Session.Close()
-	//log.Println(" done.")
 
 	// Log messages
 
@@ -164,15 +162,50 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 	for {
 		if newTrack == true {
 			// Parse the track
+
 			link, err := Session.ParseLink(spotty.Outfile)
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			track, err := link.Track()
-			if err != nil {
-				log.Println(err)
-				return
+
+			var track *spotify.Track
+			select {
+			case <-spotty.ParsePlaylist:
+				playlist, err := link.Playlist()
+				if err != nil {
+					log.Println(err)
+					return
+				}
+
+				playlist.Wait()
+
+				length := playlist.Tracks()
+
+				log.Println("Playlist has", length, "tracks")
+				parsedPlaylist := make([]string, 0, length)
+
+				go func() {
+					for i := 0; i < length; i++ {
+						processingTrack := playlist.Track(i).Track()
+
+						//log.Println("Waiting for track", i)
+						processingTrack.Wait()
+
+						parsedPlaylist = append(parsedPlaylist, processingTrack.Link().String())
+					}
+
+					spotty.TrackResults <- parsedPlaylist
+				}()
+
+				track = playlist.Track(0).Track()
+
+			default:
+				track, err = link.Track()
+				if err != nil {
+					log.Println(err)
+					return
+				}
 			}
 
 			// Load the track and play it
@@ -241,17 +274,17 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 			go spotty.Stop(1)
 			<-spotty.StopTrack
 			spotty.wg.Wait()
+			Audio.Pause()
 			Player.Unload()
-			return
 		case <-spotty.StopTrack:
 			spotty.wg.Wait()
+			Audio.Close()
 			Player.Unload()
 			return
 		case <-spotty.ChangeTrack:
 			log.Println("Changing track")
 			if spotty.Status == PLAYING {
 				Audio.Pause()
-				time.Sleep(50 * time.Millisecond)
 				Player.Pause()
 				spotty.Status = PAUSED
 			}
@@ -260,7 +293,7 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 			continue
 		case <-spotty.PauseTrack:
 			Audio.Pause()
-			time.Sleep(50 * time.Millisecond)
+			//time.Sleep(50 * time.Millisecond)
 			Player.Pause()
 			continue
 		case <-spotty.ResumeTrack:
@@ -272,7 +305,7 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 	}
 }
 
-func (spotty *SpotifyPlayer) watchPosition() {
+/*func (spotty *SpotifyPlayer) watchPosition() {
 	now := time.Now()
 	start := now
 	initialPos := spotty.Position
@@ -288,7 +321,7 @@ func (spotty *SpotifyPlayer) watchPosition() {
 		//log.Println("Position: ", spotty.Position, "Duration: ", spotty.Duration)
 	}
 
-}
+}*/
 
 // Core helpers
 
@@ -454,7 +487,6 @@ func newPortAudioStream() (*portAudioStream, error) {
 	if err := portaudio.Initialize(); err != nil {
 		return nil, err
 	}
-	log.Print(" done.")
 
 	log.Print("Creating PortAudio stream...")
 	out, err := portaudio.DefaultHostApi()
@@ -462,7 +494,6 @@ func newPortAudioStream() (*portAudioStream, error) {
 		portaudio.Terminate()
 		return nil, err
 	}
-	log.Print(" done.")
 	return &portAudioStream{device: out.DefaultOutputDevice}, nil
 }
 

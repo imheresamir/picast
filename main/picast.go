@@ -20,8 +20,6 @@ func main() {
 
 	MainDisplay := Display{}
 
-	go picast.RunServer(MainDisplay.Update)
-
 	MainDisplay.Init()
 
 }
@@ -71,7 +69,7 @@ func (d *Display) run() error {
 		}
 	}()
 
-	//go picast.RunServer(d.Update)
+	go picast.RunServer(d.Update)
 
 	win.Wait()
 

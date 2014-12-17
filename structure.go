@@ -27,6 +27,8 @@ type Media struct {
 	Metadata     *PlaylistEntry
 	Player       MediaPlayer // Eventually change to anonymous interface
 	MediaChanged chan bool
+	Playlist     []string
+	CurrentIndex int
 }
 
 type ServerStatus struct {
@@ -73,10 +75,12 @@ type SpotifyPlayer struct {
 
 	TrackInfo chan *PlaylistEntry
 
-	ChangeTrack chan bool
-	StopTrack   chan bool
-	PauseTrack  chan bool
-	ResumeTrack chan bool
+	ChangeTrack   chan bool
+	StopTrack     chan bool
+	PauseTrack    chan bool
+	ResumeTrack   chan bool
+	ParsePlaylist chan bool
+	TrackResults  chan []string
 
 	wg sync.WaitGroup
 }

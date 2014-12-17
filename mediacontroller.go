@@ -19,7 +19,7 @@ import (
 )
 
 func (media *Media) Init() {
-
+	media.Playlist = make([]string, 0)
 }
 
 func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
@@ -59,101 +59,132 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 	object.Url = strings.Trim(object.Url, " \n")
 	log.Println(object)
 
-	media.PlayAll(object.Url)
+	media.Playlist = append(media.Playlist, object.Url)
+	media.CurrentIndex = len(media.Playlist) - 1
+
+	go media.PlayAll(media.CurrentIndex)
 
 	w.WriteJson(&ServerStatus{Server: "Media playing."})
 
 }
 
-func (media *Media) PlayAll(url string) {
-	switch {
-	case strings.Contains(url, "spotify"):
-		spotifyUri := "spotify"
+func (media *Media) PlayAll(currentIndex int) {
+	for index := currentIndex; index < len(media.Playlist); index++ {
+		url := media.Playlist[index]
 
-		re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+)`)
-		matches := re.FindAllStringSubmatch(url, -1)
+		switch {
+		case strings.Contains(url, "spotify"):
+			spotifyUri := "spotify"
 
-		for i := range matches {
-			for j := range matches[i] {
-				if j != 0 && matches[i][j] != "" {
-					spotifyUri += ":"
-					spotifyUri += matches[i][j]
+			re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+):?(\w+)?:?(\w+)?`)
+			matches := re.FindAllStringSubmatch(url, -1)
+
+			for i := range matches {
+				for j := range matches[i] {
+					if j != 0 && matches[i][j] != "" {
+						spotifyUri += ":"
+						spotifyUri += matches[i][j]
+					}
 				}
 			}
-		}
 
-		if spotifyUri == "spotify" {
-			log.Println("Could not parse Spotify uri.")
-			return
-		}
+			if spotifyUri == "spotify" {
+				log.Println("Could not parse Spotify uri.")
+				continue
+			}
 
-		if reflect.DeepEqual(SpotifyLogin, spotify.Credentials{}) == true {
-			log.Println("Could not log in to Spotify.")
-			return
-		}
+			if strings.Contains(spotifyUri, "local") == true {
+				continue
+			}
 
-		if media.Player != nil && media.Player.StatusCode() != STOPPED {
-			switch media.Player.(type) {
-			case *SpotifyPlayer:
-				media.Player.(*SpotifyPlayer).Outfile = spotifyUri
-				//go media.Player.Play()
-			default:
-				media.Player.Stop(-1)
+			if reflect.DeepEqual(SpotifyLogin, spotify.Credentials{}) == true {
+				log.Println("Could not log in to Spotify.")
+				return
+			}
 
+			if media.Player != nil && media.Player.StatusCode() != STOPPED {
+				switch media.Player.(type) {
+				case *SpotifyPlayer:
+					media.Player.(*SpotifyPlayer).Outfile = spotifyUri
+				default:
+					media.Player.Stop(-1)
+
+					media.Player = &SpotifyPlayer{
+						Outfile:       spotifyUri,
+						KillSwitch:    make(chan int),
+						TrackInfo:     make(chan *PlaylistEntry),
+						ChangeTrack:   make(chan bool),
+						PauseTrack:    make(chan bool),
+						ResumeTrack:   make(chan bool),
+						StopTrack:     make(chan bool),
+						ParsePlaylist: make(chan bool),
+						TrackResults:  make(chan []string),
+					}
+				}
+			} else {
 				media.Player = &SpotifyPlayer{
-					Outfile: spotifyUri,
-					//KillSwitch:  make(chan int, 1),
-					TrackInfo:   make(chan *PlaylistEntry),
-					ChangeTrack: make(chan bool),
-					PauseTrack:  make(chan bool),
-					ResumeTrack: make(chan bool),
-					StopTrack:   make(chan bool),
+					Outfile:       spotifyUri,
+					KillSwitch:    make(chan int),
+					TrackInfo:     make(chan *PlaylistEntry),
+					ChangeTrack:   make(chan bool),
+					PauseTrack:    make(chan bool),
+					ResumeTrack:   make(chan bool),
+					StopTrack:     make(chan bool),
+					ParsePlaylist: make(chan bool),
+					TrackResults:  make(chan []string),
 				}
 			}
-		} else {
-			media.Player = &SpotifyPlayer{
-				Outfile: spotifyUri,
-				//KillSwitch:  make(chan int, 1),
-				TrackInfo:   make(chan *PlaylistEntry),
-				ChangeTrack: make(chan bool),
-				PauseTrack:  make(chan bool),
-				ResumeTrack: make(chan bool),
-				StopTrack:   make(chan bool),
-			}
-		}
 
-		go func() {
-			select {
-			case media.Metadata = <-media.Player.(*SpotifyPlayer).TrackInfo:
-				log.Println("Media changed.")
-
-				media.MediaChanged <- true
-				log.Println("Internal MediaChanged event sent.")
-			}
-		}()
-
-		go media.Player.Play()
-
-		/*log.Println("TEST sleep...")
-		time.Sleep(5 * time.Second)*/
-
-	default:
-		outfileChan := make(chan string)
-
-		go YoutubeDl(url, outfileChan)
-		outfile := <-outfileChan
-
-		if outfile == "" {
-			log.Println("Youtube-dl could not find video link.")
-		} else {
-			if media.Player != nil {
-				media.Player.Stop(-1)
+			if strings.Contains(spotifyUri, "playlist") == true {
+				go func() {
+					media.Player.(*SpotifyPlayer).ParsePlaylist <- true
+					media.Playlist = append(media.Playlist[0:index], <-media.Player.(*SpotifyPlayer).TrackResults...)
+				}()
+				//log.Println(media.Playlist)
 			}
 
-			media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int, 1)}
+			go func() {
+				select {
+				case media.Metadata = <-media.Player.(*SpotifyPlayer).TrackInfo:
+					log.Println("Media changed.")
+
+					media.MediaChanged <- true
+					log.Println("Internal MediaChanged event sent.")
+				}
+			}()
 
 			go media.Player.Play()
+
+		default:
+			outfileChan := make(chan string)
+
+			go YoutubeDl(url, outfileChan)
+			outfile := <-outfileChan
+
+			if outfile == "" {
+				log.Println("Youtube-dl could not find video link.")
+			} else {
+				if media.Player.StatusCode() != STOPPED {
+					media.Player.Stop(-1)
+				}
+
+				media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int)}
+
+				go media.Player.Play()
+			}
 		}
+
+		switch media.Player.ReturnCode() {
+		case -1:
+			break
+		case 1:
+			continue
+		}
+
+	}
+
+	if media.Player.StatusCode() != STOPPED {
+		media.Player.Stop(-1)
 	}
 
 }

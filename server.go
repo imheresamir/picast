@@ -21,7 +21,6 @@ const (
 func RunServer(displayUpdates chan *PlaylistEntry) {
 
 	MainMedia = Media{Metadata: &PlaylistEntry{}, MediaChanged: make(chan bool)}
-	MainMedia.Init()
 
 	log.Println("Server Started.")
 

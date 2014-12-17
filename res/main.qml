@@ -4,6 +4,7 @@ import QtQuick.Controls 1.1
 ApplicationWindow {
     id: window
     visible: true
+    visibility: "FullScreen"
     width: 1920
     height: 1080
     color: "#000000"
@@ -54,7 +55,7 @@ ApplicationWindow {
         anchors.left: art.right
         anchors.leftMargin: -265
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: 25
+        font.pixelSize: 30
         font.bold: false
         font.family: "Verdana"
         horizontalAlignment: Text.AlignLeft
@@ -71,7 +72,7 @@ ApplicationWindow {
         anchors.left: art.right
         anchors.leftMargin: -265
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: 25
+        font.pixelSize: 30
         font.bold: false
         font.family: "Verdana"
         horizontalAlignment: Text.AlignLeft
