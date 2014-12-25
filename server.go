@@ -18,9 +18,13 @@ const (
 	restPort       = "8082"
 )
 
-func RunServer(displayUpdates chan *PlaylistEntry) {
+func RunServer(displayUpdates chan PlaylistEntry) {
 
-	MainMedia = Media{Metadata: &PlaylistEntry{}, MediaChanged: make(chan bool)}
+	MainMedia = Media{
+		Metadata:     &PlaylistEntry{},
+		MediaChanged: make(chan bool),
+		MediaAdded:   make(chan bool),
+	}
 
 	log.Println("Server Started.")
 
@@ -41,10 +45,12 @@ func RunServer(displayUpdates chan *PlaylistEntry) {
 		&rest.Route{"POST", "/api/prev", api.Prev},
 		&rest.Route{"POST", "/api/next", api.Next},*/
 
-		&rest.Route{"POST", "/media/play", MainMedia.Play},
+		&rest.Route{"GET", "/media/play", MainMedia.Play},
+		&rest.Route{"POST", "/media/add", MainMedia.Add},
 		&rest.Route{"GET", "/media/pause", MainMedia.TogglePause},
 		&rest.Route{"GET", "/media/stop", MainMedia.Stop},
 		&rest.Route{"GET", "/media/status", MainMedia.Status},
+		&rest.Route{"GET", "/media/playlist", MainMedia.GetPlaylist},
 	)
 
 	go http.ListenAndServe(":"+restPort, &handler)
@@ -67,8 +73,10 @@ func RunServer(displayUpdates chan *PlaylistEntry) {
 		for {
 			select {
 			case <-MainMedia.MediaChanged:
-				displayUpdates <- MainMedia.Metadata
+				displayUpdates <- MainMedia.Playlist[MainMedia.CurrentIndex]
 				log.Println("Sent update to display.")
+			case <-MainMedia.MediaAdded:
+				es.SendEventMessage("mediaAdded", "playlistChanged", "")
 			default:
 				if MainMedia.Player != nil && currentState != MainMedia.Player.StatusCode() {
 
@@ -81,8 +89,6 @@ func RunServer(displayUpdates chan *PlaylistEntry) {
 						es.SendEventMessage("playing", "playerStateChanged", "")
 						log.Println("Media playing.")
 					}
-
-					//log.Println("Server Event: ", MainMedia.Player.StatusCode())
 
 					currentState = MainMedia.Player.StatusCode()
 				}

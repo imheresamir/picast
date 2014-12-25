@@ -2,7 +2,6 @@ package picast
 
 import (
 	"github.com/op/go-libspotify/spotify"
-	"sync"
 	"time"
 )
 
@@ -16,6 +15,7 @@ type PlaylistEntry struct {
 	Artist  string
 	Album   string
 	ArtPath string
+	Url     string
 }
 
 type ServerObject struct {
@@ -27,12 +27,14 @@ type Media struct {
 	Metadata     *PlaylistEntry
 	Player       MediaPlayer // Eventually change to anonymous interface
 	MediaChanged chan bool
-	Playlist     []string
+	MediaAdded   chan bool
+	Playlist     []PlaylistEntry
 	CurrentIndex int
 }
 
 type ServerStatus struct {
 	Server string
+	Url    string
 }
 
 type MediaPlayer interface {
@@ -73,16 +75,14 @@ type SpotifyPlayer struct {
 	KillSwitch chan int // Signal to break out of WatchPosition and clear struct
 	// internal stop signal = 1, external stop signal = -1
 
-	TrackInfo chan *PlaylistEntry
+	//TrackInfo chan *PlaylistEntry
 
-	ChangeTrack   chan bool
-	StopTrack     chan bool
-	PauseTrack    chan bool
-	ResumeTrack   chan bool
-	ParsePlaylist chan bool
-	TrackResults  chan []string
-
-	wg sync.WaitGroup
+	ChangeTrack chan bool
+	StopTrack   chan bool
+	PauseTrack  chan bool
+	ResumeTrack chan bool
+	//ParsePlaylist chan bool
+	//TrackResults  chan []string
 }
 
 var (

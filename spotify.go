@@ -32,15 +32,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"sync"
 	//"time"
 
 	"code.google.com/p/portaudio-go/portaudio"
 	"github.com/op/go-libspotify/spotify"
-
-	"image/jpeg"
-	"os"
 )
 
 // PiCast Spotify MediaPlayer
@@ -75,16 +71,18 @@ func (spotty *SpotifyPlayer) TogglePause() {
 		//go spotty.watchPosition()
 	}
 
-	// Prevent funky race conditions
-	//time.Sleep(1 * time.Second)
 }
 
 func (spotty *SpotifyPlayer) Stop(signal int) {
 	spotty.StopTrack <- true
 
-	spotty.Status = STOPPED
-
-	log.Println("Track stopped.")
+	switch signal {
+	case 1:
+		spotty.Status = LOADING
+	case -1:
+		spotty.Status = STOPPED
+		log.Println("Track stopped.")
+	}
 
 	spotty.KillSwitch <- signal
 }
@@ -121,8 +119,8 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 		AudioConsumer:    Audio,
 
 		// Disable playlists to make playback faster
-		//DisablePlaylistMetadataCache: true,
-		//InitiallyUnloadPlaylists:     true,
+		DisablePlaylistMetadataCache: true,
+		InitiallyUnloadPlaylists:     true,
 	})
 	if err != nil {
 		log.Println(err)
@@ -169,8 +167,8 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 				return
 			}
 
-			var track *spotify.Track
-			select {
+			/*var track *spotify.Track*/
+			/*select {
 			case <-spotty.ParsePlaylist:
 				playlist, err := link.Playlist()
 				if err != nil {
@@ -200,13 +198,13 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 
 				track = playlist.Track(0).Track()
 
-			default:
-				track, err = link.Track()
-				if err != nil {
-					log.Println(err)
-					return
-				}
+			default:*/
+			track, err := link.Track()
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			/*}*/
 
 			// Load the track and play it
 			track.Wait()
@@ -221,50 +219,6 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 				Audio.Resume()
 			}
 
-			track.Wait()
-
-			artfile := "cache/art.jpg"
-			spotty.wg.Add(1)
-			go func() {
-				os.Remove("res/" + artfile)
-				image, err := track.Album().Cover(spotify.ImageSizeLarge)
-				if err != nil {
-					fmt.Println(err)
-				} else {
-					// TODO: Add error checking and refactor
-					log.Println("Waiting for spotify image...")
-
-					image.Wait()
-					toimg, _ := os.Create("res/" + artfile)
-					img, _, _ := image.Decode()
-					jpeg.Encode(toimg, img, &jpeg.Options{jpeg.DefaultQuality})
-					toimg.Close()
-
-				}
-
-				spotty.Duration = track.Duration()
-
-				//go spotty.watchPosition()
-
-				var artists []string
-				for i := 0; i < track.Artists(); i++ {
-					artists = append(artists, track.Artist(i).Name())
-				}
-				artistString := strings.Join(artists, ", ")
-
-				log.Println("Trying to send data to display...")
-
-				spotty.TrackInfo <- &PlaylistEntry{
-					Title:   track.Name(),
-					Artist:  artistString,
-					Album:   track.Album().Name(),
-					ArtPath: artfile,
-				}
-				log.Println("Spotify sent track info.")
-
-				spotty.wg.Done()
-			}()
-
 			newTrack = false
 			spotty.Status = PLAYING
 		}
@@ -273,11 +227,9 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 		case <-Session.EndOfTrackUpdates():
 			go spotty.Stop(1)
 			<-spotty.StopTrack
-			spotty.wg.Wait()
 			Audio.Pause()
 			Player.Unload()
 		case <-spotty.StopTrack:
-			spotty.wg.Wait()
 			Audio.Close()
 			Player.Unload()
 			return
@@ -293,7 +245,6 @@ func (spotty *SpotifyPlayer) SpotifyThread() {
 			continue
 		case <-spotty.PauseTrack:
 			Audio.Pause()
-			//time.Sleep(50 * time.Millisecond)
 			Player.Pause()
 			continue
 		case <-spotty.ResumeTrack:

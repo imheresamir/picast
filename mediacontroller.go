@@ -11,18 +11,35 @@ import (
 	"regexp"
 	//"sync"
 	//"os"
-	//"io/ioutil"
+	"io/ioutil"
 	//"os/exec"
 	//"image/jpeg"
 	//"os"
 	//"time"
+	"encoding/json"
+	"errors"
 )
 
 func (media *Media) Init() {
-	media.Playlist = make([]string, 0)
+	media.Playlist = make([]PlaylistEntry, 0)
+}
+
+func (media *Media) GetPlaylist(w rest.ResponseWriter, r *rest.Request) {
+	w.WriteJson(&struct{ Playlist []PlaylistEntry }{Playlist: media.Playlist})
 }
 
 func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
+	if media.Player != nil && media.Player.StatusCode() != STOPPED {
+		media.Player.TogglePause()
+	} else {
+		media.CurrentIndex = 0
+		go media.PlayAll()
+	}
+
+	w.WriteJson(&ServerStatus{Server: "Media playing."})
+}
+
+func (media *Media) Add(w rest.ResponseWriter, r *rest.Request) {
 	object := ServerObject{}
 
 	err := r.DecodeJsonPayload(&object)
@@ -43,7 +60,6 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		switch object.Data.(type) {
 		case map[string]interface{}:
 			login := object.Data.(map[string]interface{})
-			//entry.Data = nil
 
 			SpotifyLogin = spotify.Credentials{
 				Username: login["Username"].(string),
@@ -55,45 +71,125 @@ func (media *Media) Play(w rest.ResponseWriter, r *rest.Request) {
 		}
 	}
 
-	// Sanitize url string
-	object.Url = strings.Trim(object.Url, " \n")
-	log.Println(object)
+	parsedEntry, err := media.parseUrl(object.Url)
+	if err != nil {
+		w.WriteJson(&ServerStatus{Server: err.Error()})
+		return
+	}
 
-	media.Playlist = append(media.Playlist, object.Url)
-	media.CurrentIndex = len(media.Playlist) - 1
+	media.Playlist = append(media.Playlist, parsedEntry)
 
-	go media.PlayAll(media.CurrentIndex)
+	//log.Println("Added:", parsedEntry)
+	//log.Println("Current Playlist:", media.Playlist)
 
-	w.WriteJson(&ServerStatus{Server: "Media playing."})
+	go func() {
+		media.MediaAdded <- true
+	}()
+
+	w.WriteJson(&ServerStatus{Server: "Media added."})
 
 }
 
-func (media *Media) PlayAll(currentIndex int) {
-	for index := currentIndex; index < len(media.Playlist); index++ {
-		url := media.Playlist[index]
+func (media *Media) parseUrl(url string) (PlaylistEntry, error) {
+	// Sanitize url string
+	url = strings.Trim(url, " \n")
 
-		switch {
-		case strings.Contains(url, "spotify"):
-			spotifyUri := "spotify"
+	parsedEntry := PlaylistEntry{}
 
-			re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+):?(\w+)?:?(\w+)?`)
-			matches := re.FindAllStringSubmatch(url, -1)
+	switch {
+	case strings.Contains(url, "spotify"):
+		parsedEntry.Url = "spotify"
+		var trackId string
 
-			for i := range matches {
-				for j := range matches[i] {
-					if j != 0 && matches[i][j] != "" {
-						spotifyUri += ":"
-						spotifyUri += matches[i][j]
-					}
+		re := regexp.MustCompile(`https?:\/\/open\.spotify\.com\/(\w+)\/(\w+)|spotify:(\w+):(\w+):?(\w+)?:?(\w+)?`)
+		matches := re.FindAllStringSubmatch(url, -1)
+
+		for i := range matches {
+			for j := range matches[i] {
+				if j != 0 && matches[i][j] != "" {
+					parsedEntry.Url += ":"
+					parsedEntry.Url += matches[i][j]
+					trackId = matches[i][j] // TrackId is the last match
 				}
 			}
+		}
 
-			if spotifyUri == "spotify" {
-				log.Println("Could not parse Spotify uri.")
-				continue
+		if parsedEntry.Url == "spotify" {
+			// parsedUrl hasn't changed
+			errorText := "Invalid Spotify uri."
+			log.Println(errorText)
+			return parsedEntry, errors.New(errorText)
+		}
+
+		resp, err := http.Get("https://api.spotify.com/v1/tracks/" + trackId)
+		if err != nil {
+			errorText := "Could not get Spotify metadata."
+			log.Println(errorText)
+			return parsedEntry, errors.New(errorText)
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+
+		var f interface{}
+		err = json.Unmarshal(body, &f)
+		if err != nil {
+			errorText := "Error decoding JSON"
+			log.Println(errorText)
+			return parsedEntry, errors.New(errorText)
+		}
+
+		m := f.(map[string]interface{})
+
+		for k, v := range m {
+			switch k {
+			case "name":
+				parsedEntry.Title = v.(string)
+			case "artists":
+				// ["artists"] is an []interface{}
+				for i, u := range v.([]interface{}) {
+					if i == 0 {
+						parsedEntry.Artist = u.(map[string]interface{})["name"].(string)
+					} else {
+						parsedEntry.Artist = parsedEntry.Artist + ", " + u.(map[string]interface{})["name"].(string)
+					}
+				}
+			case "album":
+				// ["album"] is an interface{}
+				parsedEntry.Album = v.(map[string]interface{})["name"].(string)
+				parsedEntry.ArtPath = v.(map[string]interface{})["images"].([]interface{})[0].(map[string]interface{})["url"].(string)
 			}
+		}
 
-			if strings.Contains(spotifyUri, "local") == true {
+		return parsedEntry, nil
+
+	default:
+		outfileChan := make(chan string)
+
+		go YoutubeDl(url, outfileChan)
+		parsedEntry.Url = <-outfileChan
+
+		if parsedEntry.Url == "" {
+			errorText := "Youtube-dl could not find video link."
+			log.Println(errorText)
+			return parsedEntry, errors.New(errorText)
+		}
+
+		// TODO: Parse youtube with youtube api
+		return parsedEntry, nil
+	}
+
+}
+
+func (media *Media) PlayAll() {
+	for ; media.CurrentIndex < len(media.Playlist); media.CurrentIndex++ {
+		parsedUrl := media.Playlist[media.CurrentIndex].Url
+		log.Println("Playing", media.Playlist[media.CurrentIndex], "[", media.CurrentIndex, "]")
+
+		switch {
+		case strings.Contains(parsedUrl, "spotify"):
+
+			if strings.Contains(parsedUrl, "local") == true {
+				log.Println("Skipping local track")
 				continue
 			}
 
@@ -105,73 +201,46 @@ func (media *Media) PlayAll(currentIndex int) {
 			if media.Player != nil && media.Player.StatusCode() != STOPPED {
 				switch media.Player.(type) {
 				case *SpotifyPlayer:
-					media.Player.(*SpotifyPlayer).Outfile = spotifyUri
+					media.Player.(*SpotifyPlayer).Outfile = parsedUrl
 				default:
 					media.Player.Stop(-1)
 
 					media.Player = &SpotifyPlayer{
-						Outfile:       spotifyUri,
-						KillSwitch:    make(chan int),
-						TrackInfo:     make(chan *PlaylistEntry),
-						ChangeTrack:   make(chan bool),
-						PauseTrack:    make(chan bool),
-						ResumeTrack:   make(chan bool),
-						StopTrack:     make(chan bool),
-						ParsePlaylist: make(chan bool),
-						TrackResults:  make(chan []string),
+						Outfile:     parsedUrl,
+						KillSwitch:  make(chan int),
+						ChangeTrack: make(chan bool),
+						PauseTrack:  make(chan bool),
+						ResumeTrack: make(chan bool),
+						StopTrack:   make(chan bool),
+						//ParsePlaylist: make(chan bool),
+						//TrackResults: make(chan []string),
 					}
 				}
 			} else {
 				media.Player = &SpotifyPlayer{
-					Outfile:       spotifyUri,
-					KillSwitch:    make(chan int),
-					TrackInfo:     make(chan *PlaylistEntry),
-					ChangeTrack:   make(chan bool),
-					PauseTrack:    make(chan bool),
-					ResumeTrack:   make(chan bool),
-					StopTrack:     make(chan bool),
-					ParsePlaylist: make(chan bool),
-					TrackResults:  make(chan []string),
+					Outfile:     parsedUrl,
+					KillSwitch:  make(chan int),
+					ChangeTrack: make(chan bool),
+					PauseTrack:  make(chan bool),
+					ResumeTrack: make(chan bool),
+					StopTrack:   make(chan bool),
+					//ParsePlaylist: make(chan bool),
+					//TrackResults: make(chan []string),
 				}
 			}
 
-			if strings.Contains(spotifyUri, "playlist") == true {
-				go func() {
-					media.Player.(*SpotifyPlayer).ParsePlaylist <- true
-					media.Playlist = append(media.Playlist[0:index], <-media.Player.(*SpotifyPlayer).TrackResults...)
-				}()
-				//log.Println(media.Playlist)
-			}
-
-			go func() {
-				select {
-				case media.Metadata = <-media.Player.(*SpotifyPlayer).TrackInfo:
-					log.Println("Media changed.")
-
-					media.MediaChanged <- true
-					log.Println("Internal MediaChanged event sent.")
-				}
-			}()
-
+			media.MediaChanged <- true
 			go media.Player.Play()
 
 		default:
-			outfileChan := make(chan string)
 
-			go YoutubeDl(url, outfileChan)
-			outfile := <-outfileChan
-
-			if outfile == "" {
-				log.Println("Youtube-dl could not find video link.")
-			} else {
-				if media.Player.StatusCode() != STOPPED {
-					media.Player.Stop(-1)
-				}
-
-				media.Player = &OmxPlayer{Outfile: outfile, KillSwitch: make(chan int)}
-
-				go media.Player.Play()
+			if media.Player.StatusCode() != STOPPED {
+				media.Player.Stop(-1)
 			}
+
+			media.Player = &OmxPlayer{Outfile: parsedUrl, KillSwitch: make(chan int)}
+
+			go media.Player.Play()
 		}
 
 		switch media.Player.ReturnCode() {
@@ -183,7 +252,7 @@ func (media *Media) PlayAll(currentIndex int) {
 
 	}
 
-	if media.Player.StatusCode() != STOPPED {
+	if media.CurrentIndex == len(media.Playlist)-1 && media.Player.StatusCode() != STOPPED {
 		media.Player.Stop(-1)
 	}
 
@@ -193,6 +262,7 @@ func (media *Media) Status(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(media.StatusBuilder())
 }
 
+// TODO: Needs cleanup
 func (media *Media) StatusBuilder() *ServerStatus {
 	status := &ServerStatus{Server: "No media."}
 

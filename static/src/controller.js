@@ -31,10 +31,33 @@ define(function(require, exports, module) {
         }
     }
 
+    var ajax2 = new XMLHttpRequest();
+
+    ajax2.open('GET', serverIp + ':8082/media/playlist', true);
+    ajax2.setRequestHeader('Content-Type', 'application/json');
+    ajax2.send();
+
+    ajax2.onreadystatechange = function() {
+        if(ajax2.readyState == 4 && ajax2.status == 200) {
+            var jsonData = JSON.parse(ajax2.responseText);
+            if(jsonData.Playlist) {
+
+                for(var i = 0; i < jsonData.Playlist.length; i++) {
+                    playlist.AddEntry(jsonData.Playlist[i]);
+                }
+                playlist.Reconstruct();
+
+                playLock = false;
+                playercontrols._eventOutput.emit("paused");
+
+            }
+        }
+    }
+
     evtSource.addEventListener("playerStateChanged", function(e) {
         console.log("Server event: playerState - " + e.data);
         if(e.data == "stopped") {
-            playLock = true;
+            //playLock = true;
             playercontrols._eventOutput.emit("stopped");
         } else if(e.data == "paused") {
             playLock = false;
@@ -45,10 +68,37 @@ define(function(require, exports, module) {
         }
     });
 
+    evtSource.addEventListener("playlistChanged", function(e) {
+        console.log("Server event: playlistChanged - " + e.data);
+        
+        var ajax3 = new XMLHttpRequest();
+
+        ajax3.open('GET', serverIp + ':8082/media/playlist', true);
+        ajax3.setRequestHeader('Content-Type', 'application/json');
+        ajax3.send();
+
+        ajax3.onreadystatechange = function() {
+            if(ajax3.readyState == 4 && ajax3.status == 200) {
+                var jsonData = JSON.parse(ajax3.responseText);
+                if(jsonData.Playlist) {
+
+                    playlist.Clear();
+
+                    for(var i = 0; i < jsonData.Playlist.length; i++) {
+                        playlist.AddEntry(jsonData.Playlist[i]);
+                    }
+
+                    playlist.Reconstruct();
+
+                }
+            }
+        }
+    });
+
+
     playercontrols._eventInput.on("pause", function() {
         if(!playLock) {
             console.log("pause");
-            //uiLock = true;
 
             // Talk to server
             var ajax = new XMLHttpRequest();
@@ -57,13 +107,7 @@ define(function(require, exports, module) {
             ajax.setRequestHeader('Content-Type', 'application/json');
             ajax.send(null);
             
-            ajax.onreadystatechange = function() {
-                if(ajax.readyState == 4 && ajax.status == 200) {
-                    uiLock = false;
-                }
-            }
-
-            //playercontrols._eventOutput.emit("paused");
+            playercontrols._eventOutput.emit("paused");
         }
 
     });
@@ -71,22 +115,15 @@ define(function(require, exports, module) {
     playercontrols._eventInput.on("play", function() {
         if(!playLock) {
             console.log("play");
-            //uiLock = true;
 
             // Talk to server
             var ajax = new XMLHttpRequest();
 
-            ajax.open('GET', serverIp + ':8082/media/pause', true);
+            ajax.open('GET', serverIp + ':8082/media/play', true);
             ajax.setRequestHeader('Content-Type', 'application/json');
             ajax.send(null);
-            
-            ajax.onreadystatechange = function() {
-                if(ajax.readyState == 4 && ajax.status == 200) {
-                    uiLock = false;
-                }
-            }
 
-            //playercontrols._eventOutput.emit("playing");
+            playercontrols._eventOutput.emit("playing");
         }
         
     });
@@ -117,6 +154,17 @@ define(function(require, exports, module) {
         // Talk to server
 
         playlist._eventOutput.emit("play", index);
+    });
+
+    playlist._eventInput.on("playlistEntryAdded", function(data) {
+        // Talk to server
+        var ajax = new XMLHttpRequest();
+        var serverResponse;
+
+        ajax.open('POST', serverIp + ':8082/media/add', true);
+        ajax.setRequestHeader('Content-Type', 'application/json');
+        ajax.send('{"Url":"' + data + '"}');
+        
     });
 
 });

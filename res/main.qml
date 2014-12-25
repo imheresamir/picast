@@ -24,6 +24,15 @@ ApplicationWindow {
         z: 1
         fillMode: Image.PreserveAspectFit
         source: currentTrack.artPath
+        onStatusChanged: {
+            if (art.status == Image.Ready) {
+                console.log('Loaded')
+            } else if (art.status == Image.Loading) {
+                console.log('Loading')
+            } else {
+                console.log('wtf')
+            }
+        }
     }
 
     Text {

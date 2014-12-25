@@ -8,6 +8,7 @@ define(function(require, exports, module) {
 
     var playlistItems = [];
     var eventHandler = new EventHandler();
+    var index = 0;
 
     function PlaylistView() {
         View.apply(this, arguments);
@@ -76,6 +77,19 @@ define(function(require, exports, module) {
 
         _construct.call(this);
 
+        this.rootContainer.on("dragover", function(event) {
+            event.preventDefault();
+
+        });
+
+        this.rootContainer.on("drop", function(event) {
+            event.preventDefault();
+            var data = event.dataTransfer.getData("Text");
+
+            eventHandler.emit("playlistEntryAdded", data)
+
+        });
+
         this.rootContainer.sequenceFrom(playlistItems);
         this.add(this.rootContainer);
 
@@ -83,60 +97,58 @@ define(function(require, exports, module) {
 
     PlaylistView.prototype = Object.create(View.prototype);
     PlaylistView.prototype.constructor = PlaylistView;
+    PlaylistView.prototype.AddEntry = AddEntry;
+    PlaylistView.prototype.Clear = Clear;
+    PlaylistView.prototype.Reconstruct = _construct;
 
     PlaylistView.DEFAULT_OPTIONS = {
-        entries: [
-            {
-                Id: "0",
-                Url: "text0"
-            },
-            {
-                Id: "1",
-                Url: "text1"
-            },
-            {
-                Id: "2",
-                Url: "text2"
-            },
-            {
-                Id: "3",
-                Url: "text3"
-            },
-            {
-                Id: "4",
-                Url: "text4"
-            }
-        ],
+        entries: [],
         sizeFunction: function() {
             return [100, 100];
         },
         selectedProperties: {
             color: "white",
             backgroundColor: "rgba(255, 255, 255, 0.2)",
-            textAlign: "center",
-            border: "none"
-            //border: "2.5px solid rgba(6, 148, 147, 237)",
-            //borderRadius: "10px"
+            textAlign: "left",
+            border: "none",
+            //paddingLeft: "110px",
+            //paddingTop: "27.5px"
         },
         playingProperties: {
             color: "white",
-            //backgroundColor: "rgba(255, 255, 255, 0.2)",
-            textAlign: "center",
+            textAlign: "left",
             border: "2.5px solid rgba(6, 148, 147, 237)",
-            //borderRadius: "10px"
+            //paddingLeft: "110px",
+            //paddingTop: "27.5px"
         },
         defaultProperties: {
             color: "white",
-            textAlign: "center",
+            textAlign: "left",
             backgroundColor: "rgba(255, 255, 255, 0)",
-            border: "none"
-            //borderRadius: "10px"
+            border: "none",
+            //paddingLeft: "110px",
+            //paddingTop: "27.5px"
         }
 
     };
 
+    function Clear() {
+        this.options.entries = [];
+        this.index = 0;
+    }
+
+    function AddEntry(entry) {
+        this.options.entries.push({
+            Title: entry.Title,
+            Artist: entry.Artist,
+            Album: entry.Album,
+            ArtPath: entry.ArtPath,
+            Url: entry.Url
+        });
+    }
+
     function _construct() {
-        for(var i = 0; i < this.options.entries.length; i++) {
+        for(var i = index; i < this.options.entries.length; i++, index++) {
             var itemnode = new RenderNode();
             var mod = new Modifier({
                 align: [1, 0],
@@ -147,8 +159,11 @@ define(function(require, exports, module) {
             mod.sizeFrom(this.options.sizeFunction());
 
             var itemSurface = new Surface({
-                content: this.options.entries[i].Url,
-                //size: [true, 40],
+                content:
+                    '<img src="' + this.options.entries[i].ArtPath + '" height="100" width="100" style="float:left;margin-top:7.5px;margin-left:7.5px;">'
+                    + '<p style="margin-left:125px;margin-top:15px;">' + this.options.entries[i].Title
+                    + '<br>' + this.options.entries[i].Artist
+                    + '<br>' + this.options.entries[i].Album + '</p>',
                 properties: this.options.defaultProperties
             });
 
@@ -161,14 +176,6 @@ define(function(require, exports, module) {
             }
 
             itemSurface.pipe(this.rootContainer.scrollview);
-
-            /*itemSurface.on("click", function() {
-                console.log("wtf");
-                console.log(this);
-                eventHandler.emit("itemClicked", j);
-
-            });*/
-
 
             itemnode.add(mod).add(itemSurface);
 
